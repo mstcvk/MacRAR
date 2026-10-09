@@ -78,6 +78,15 @@ Yalnızca derlemek için `./build.sh` (çıktı: `build/MacRAR.app`). Kurulum ad
 
 Hızlı eylemler Finder menüsünde görünmezse: Sistem Ayarları → Genel → Oturum Açma Öğeleri ve Uzantılar → Finder (Hızlı Eylemler) altından etkinleştirin.
 
+## İmzalı dağıtım (release.sh)
+
+`build.sh` yalnızca bu Mac'te çalışan ad-hoc imzalı bir uygulama üretir. Başka Mac'lerde Gatekeeper uyarısı çıkmaması için `release.sh` uygulamayı Developer ID sertifikasıyla imzalar, Apple notarize servisine gönderir, onay damgasını ekler ve `dist/MacRAR-<sürüm>.zip` üretir. Gerekenler: Apple Developer Program üyeliği, "Developer ID Application" sertifikası (Xcode → Settings → Accounts → Manage Certificates…) ve bir `notarytool` anahtar zinciri profili:
+
+```bash
+xcrun notarytool store-credentials MacRAR --apple-id siz@ornek.com --team-id EKIPKIMLIGI
+./release.sh
+```
+
 ## Komut satırı modları
 
 Hızlı eylemler uygulamayı şu şekilde çağırır:

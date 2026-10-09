@@ -101,7 +101,14 @@ After installing:
 
 ### Code signing
 
-The app is ad-hoc signed and therefore runs on the Mac it was built on. If you pass the `.app` to someone else, Gatekeeper will complain; they can right-click → Open once, or run `xattr -cr /Applications/MacRAR.app`. Distributing without that warning requires an Apple Developer ID certificate and notarization.
+`build.sh` produces an ad-hoc signed app that runs on the Mac it was built on. If you pass that `.app` to someone else, Gatekeeper will complain; they can right-click → Open once, or run `xattr -cr /Applications/MacRAR.app`.
+
+For a build that opens anywhere without warnings, `release.sh` signs with a Developer ID certificate, submits the app to Apple's notary service, staples the ticket and writes `dist/MacRAR-<version>.zip`. It needs an Apple Developer Program membership, a "Developer ID Application" certificate (Xcode → Settings → Accounts → Manage Certificates…) and a `notarytool` keychain profile:
+
+```bash
+xcrun notarytool store-credentials MacRAR --apple-id you@example.com --team-id TEAMID
+./release.sh
+```
 
 ## Command-line modes
 
