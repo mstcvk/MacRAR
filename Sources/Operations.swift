@@ -64,9 +64,9 @@ enum Ops {
                 wrong = true
             case .error(let r):
                 if r.notArchive {
-                    Dialogs.error("Arşiv açılamadı", "\"\(name(archive))\" desteklenen bir arşiv değil.")
+                    Dialogs.error(L("Arşiv açılamadı"), LF("\"%@\" desteklenen bir arşiv değil.", name(archive)))
                 } else {
-                    Dialogs.error("Arşiv açılamadı", r.errorSummary)
+                    Dialogs.error(L("Arşiv açılamadı"), r.errorSummary)
                 }
                 return nil
             }
@@ -143,7 +143,7 @@ enum Ops {
     private static func runExtract(info: ArchiveInfo, names: [String]?, dest: String, password: String?, mode: OverwriteArg,
                                    host: NSWindow?, count: Int?, quiet: Bool, completion: @escaping (Bool, String?) -> Void) {
         let stages = extractStages(info: info, names: names, dest: dest, password: password, mode: mode)
-        runJob(title: "Çıkartılıyor: \(name(info.path))", stages: stages, host: host, totalFiles: count, stripPrefix: dest) { r in
+        runJob(title: LF("Çıkartılıyor: %@", name(info.path)), stages: stages, host: host, totalFiles: count, stripPrefix: dest) { r in
             if r.cancelled { completion(false, password); return }
             if r.wrongPassword {
                 guard let pw = Dialogs.askPassword(archiveName: name(info.path), wrong: true) else { completion(false, password); return }
@@ -151,12 +151,12 @@ enum Ops {
                 return
             }
             if !r.ok {
-                Dialogs.error("Çıkartma başarısız", r.errorSummary)
+                Dialogs.error(L("Çıkartma başarısız"), r.errorSummary)
                 completion(false, password)
                 return
             }
             if r.code == 1, !quiet {
-                Dialogs.info("Çıkartma uyarılarla tamamlandı", r.errorSummary)
+                Dialogs.info(L("Çıkartma uyarılarla tamamlandı"), r.errorSummary)
             }
             completion(true, password)
         }
@@ -186,7 +186,7 @@ enum Ops {
                 stages = [(.sevenZip, ["t", "-bsp1", "-bb1", RarRunner.passwordArg7z(password), "--", info.path])]
             }
         }
-        runJob(title: "Test ediliyor: \(name(info.path))", stages: stages, host: host, totalFiles: info.entries.count) { r in
+        runJob(title: LF("Test ediliyor: %@", name(info.path)), stages: stages, host: host, totalFiles: info.entries.count) { r in
             if r.cancelled { completion(false, password); return }
             if r.wrongPassword {
                 guard let pw = Dialogs.askPassword(archiveName: name(info.path), wrong: true) else { completion(false, password); return }
@@ -194,9 +194,9 @@ enum Ops {
                 return
             }
             if r.ok {
-                Dialogs.info("Test başarılı", "\"\(name(info.path))\" arşivinde hata bulunmadı.")
+                Dialogs.info(L("Test başarılı"), LF("\"%@\" arşivinde hata bulunmadı.", name(info.path)))
             } else {
-                Dialogs.error("Test başarısız", r.errorSummary)
+                Dialogs.error(L("Test başarısız"), r.errorSummary)
             }
             completion(r.ok, password)
         }
@@ -208,7 +208,7 @@ enum Ops {
         var o = options
         if FileManager.default.fileExists(atPath: o.archivePath) {
             let alert = NSAlert()
-            alert.messageText = "\"\(name(o.archivePath))\" zaten var"
+            alert.messageText = LF("\"%@\" zaten var", name(o.archivePath))
             if o.format.supportsAppend {
                 // Mevcut arşiv şifreli mi? (şifresiz listeleme denemesi)
                 var existingEncrypted = false
@@ -218,10 +218,10 @@ enum Ops {
                 case .error: break
                 }
                 if existingEncrypted {
-                    alert.informativeText = "Aynı adlı mevcut arşiv şifreli. Yeni, şifresiz bir arşiv oluşturulsun mu, yoksa dosyalar şifreli arşive mi eklensin?"
-                    alert.addButton(withTitle: "Yeni Arşiv Oluştur")
-                    alert.addButton(withTitle: "Şifreli Arşive Ekle…")
-                    alert.addButton(withTitle: "İptal")
+                    alert.informativeText = L("Aynı adlı mevcut arşiv şifreli. Yeni, şifresiz bir arşiv oluşturulsun mu, yoksa dosyalar şifreli arşive mi eklensin?")
+                    alert.addButton(withTitle: L("Yeni Arşiv Oluştur"))
+                    alert.addButton(withTitle: L("Şifreli Arşive Ekle…"))
+                    alert.addButton(withTitle: L("İptal"))
                     Dialogs.activate()
                     switch alert.runModal() {
                     case .alertFirstButtonReturn:
@@ -235,10 +235,10 @@ enum Ops {
                         completion(false, o.archivePath); return
                     }
                 } else {
-                    alert.informativeText = "Yeni bir arşiv oluşturulsun mu, yoksa dosyalar mevcut arşive mi eklensin?"
-                    alert.addButton(withTitle: "Yeni Arşiv Oluştur")
-                    alert.addButton(withTitle: "Mevcut Arşive Ekle")
-                    alert.addButton(withTitle: "İptal")
+                    alert.informativeText = L("Yeni bir arşiv oluşturulsun mu, yoksa dosyalar mevcut arşive mi eklensin?")
+                    alert.addButton(withTitle: L("Yeni Arşiv Oluştur"))
+                    alert.addButton(withTitle: L("Mevcut Arşive Ekle"))
+                    alert.addButton(withTitle: L("İptal"))
                     Dialogs.activate()
                     switch alert.runModal() {
                     case .alertFirstButtonReturn: o.archivePath = uniquePath(o.archivePath)
@@ -247,9 +247,9 @@ enum Ops {
                     }
                 }
             } else {
-                alert.informativeText = "Bu biçimde mevcut arşive ekleme yapılamaz. Yeni bir arşiv oluşturulsun mu?"
-                alert.addButton(withTitle: "Yeni Arşiv Oluştur")
-                alert.addButton(withTitle: "İptal")
+                alert.informativeText = L("Bu biçimde mevcut arşive ekleme yapılamaz. Yeni bir arşiv oluşturulsun mu?")
+                alert.addButton(withTitle: L("Yeni Arşiv Oluştur"))
+                alert.addButton(withTitle: L("İptal"))
                 Dialogs.activate()
                 if alert.runModal() == .alertFirstButtonReturn { o.archivePath = uniquePath(o.archivePath) } else { completion(false, o.archivePath); return }
             }
@@ -264,7 +264,7 @@ enum Ops {
         guard index < steps.count else { completion(true, archive); return }
         let step = steps[index]
         let suffix = steps.count > 1 ? " (\(index + 1)/\(steps.count))" : ""
-        runJob(title: "\(step.title): \(name(archive))\(suffix)", tool: step.tool, args: step.args, cwd: cwd, host: host, totalFiles: nil) { r in
+        runJob(title: "\(L(step.title)): \(name(archive))\(suffix)", tool: step.tool, args: step.args, cwd: cwd, host: host, totalFiles: nil) { r in
             step.cleanup?()
             if r.cancelled {
                 steps[(index + 1)...].forEach { $0.cleanup?() }
@@ -272,7 +272,7 @@ enum Ops {
             }
             if !r.ok {
                 steps[(index + 1)...].forEach { $0.cleanup?() }
-                Dialogs.error("Sıkıştırma başarısız", r.errorSummary)
+                Dialogs.error(L("Sıkıştırma başarısız"), r.errorSummary)
                 completion(false, archive)
                 return
             }
@@ -284,7 +284,7 @@ enum Ops {
 
     static func add(info: ArchiveInfo, items: [String], password: String?, host: NSWindow?, completion: @escaping (Bool, String?) -> Void) {
         guard info.supportsModification else {
-            Dialogs.error("Desteklenmiyor", "tar.gz / tar.xz türü arşivlere dosya eklenemez. Yeni bir arşiv oluşturun.")
+            Dialogs.error(L("Desteklenmiyor"), L("tar.gz / tar.xz türü arşivlere dosya eklenemez. Yeni bir arşiv oluşturun."))
             completion(false, password); return
         }
         var pw = password
@@ -301,21 +301,21 @@ enum Ops {
             if info.headersEncrypted { args.append("-mhe=on") }
             stages = [(.sevenZip, args + ["--", info.path] + items)]
         }
-        runJob(title: "Ekleniyor: \(name(info.path))", stages: stages, host: host, totalFiles: nil) { r in
+        runJob(title: LF("Ekleniyor: %@", name(info.path)), stages: stages, host: host, totalFiles: nil) { r in
             if r.cancelled { completion(false, pw); return }
             if r.wrongPassword {
                 guard let p = Dialogs.askPassword(archiveName: name(info.path), wrong: true) else { completion(false, pw); return }
                 add(info: info, items: items, password: p, host: host, completion: completion)
                 return
             }
-            if !r.ok { Dialogs.error("Ekleme başarısız", r.errorSummary) }
+            if !r.ok { Dialogs.error(L("Ekleme başarısız"), r.errorSummary) }
             completion(r.ok, pw)
         }
     }
 
     static func delete(info: ArchiveInfo, names: [String], password: String?, host: NSWindow?, completion: @escaping (Bool, String?) -> Void) {
         guard info.supportsModification else {
-            Dialogs.error("Desteklenmiyor", "tar.gz / tar.xz türü arşivlerden dosya silinemez.")
+            Dialogs.error(L("Desteklenmiyor"), L("tar.gz / tar.xz türü arşivlerden dosya silinemez."))
             completion(false, password); return
         }
         var pw = password
@@ -330,14 +330,14 @@ enum Ops {
         case .other:
             stages = [(.sevenZip, ["d", "-y", "-bsp1", "-bb1", RarRunner.passwordArg7z(pw), "--", info.path] + names)]
         }
-        runJob(title: "Siliniyor: \(name(info.path))", stages: stages, host: host, totalFiles: nil) { r in
+        runJob(title: LF("Siliniyor: %@", name(info.path)), stages: stages, host: host, totalFiles: nil) { r in
             if r.cancelled { completion(false, pw); return }
             if r.wrongPassword {
                 guard let p = Dialogs.askPassword(archiveName: name(info.path), wrong: true) else { completion(false, pw); return }
                 delete(info: info, names: names, password: p, host: host, completion: completion)
                 return
             }
-            if !r.ok { Dialogs.error("Silme başarısız", r.errorSummary) }
+            if !r.ok { Dialogs.error(L("Silme başarısız"), r.errorSummary) }
             completion(r.ok, pw)
         }
     }

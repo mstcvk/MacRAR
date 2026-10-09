@@ -9,13 +9,13 @@ enum QuickActions {
     }
 
     static let actions: [Action] = [
-        Action(name: "MacRAR ile Aç", flag: nil, icon: "NSActionTemplate"),
-        Action(name: "MacRAR • Buraya Çıkart", flag: "--extract-here", icon: "NSActionTemplate"),
-        Action(name: "MacRAR • Klasöre Çıkart", flag: "--extract-folder", icon: "NSActionTemplate"),
-        Action(name: "MacRAR • Şuraya Çıkart…", flag: "--extract-to", icon: "NSActionTemplate"),
-        Action(name: "MacRAR • Test Et", flag: "--test", icon: "NSActionTemplate"),
-        Action(name: "MacRAR • Sıkıştır (RAR)", flag: "--compress", icon: "NSActionTemplate"),
-        Action(name: "MacRAR • Arşiv Oluştur…", flag: "--compress-dialog", icon: "NSActionTemplate"),
+        Action(name: L("MacRAR ile Aç"), flag: nil, icon: "NSActionTemplate"),
+        Action(name: L("MacRAR • Buraya Çıkart"), flag: "--extract-here", icon: "NSActionTemplate"),
+        Action(name: L("MacRAR • Klasöre Çıkart"), flag: "--extract-folder", icon: "NSActionTemplate"),
+        Action(name: L("MacRAR • Şuraya Çıkart…"), flag: "--extract-to", icon: "NSActionTemplate"),
+        Action(name: L("MacRAR • Test Et"), flag: "--test", icon: "NSActionTemplate"),
+        Action(name: L("MacRAR • Sıkıştır (RAR)"), flag: "--compress", icon: "NSActionTemplate"),
+        Action(name: L("MacRAR • Arşiv Oluştur…"), flag: "--compress-dialog", icon: "NSActionTemplate"),
     ]
 
     static var servicesDir: String {
@@ -30,7 +30,7 @@ enum QuickActions {
         try? fm.createDirectory(atPath: servicesDir, withIntermediateDirectories: true)
         // Eski sürümleri temizle
         if let items = try? fm.contentsOfDirectory(atPath: servicesDir) {
-            for i in items where i.hasPrefix("RAR • ") || i.hasPrefix("MacRAR • ") || i == "MacRAR ile Aç.workflow" {
+            for i in items where i.hasPrefix("RAR • ") || i.hasPrefix("MacRAR • ") || i == "MacRAR ile Aç.workflow" || i == "Open with MacRAR.workflow" {
                 try? fm.removeItem(atPath: (servicesDir as NSString).appendingPathComponent(i))
             }
         }

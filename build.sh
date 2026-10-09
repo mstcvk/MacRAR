@@ -45,6 +45,7 @@ swiftc -O -swift-version 5 \
 
 echo "▸ Paketleniyor"
 cp Info.plist "$APP/Contents/Info.plist"
+mkdir -p "$APP/Contents/Resources/en.lproj" "$APP/Contents/Resources/tr.lproj"
 echo -n "APPL????" > "$APP/Contents/PkgInfo"
 cp "$RARDIR/rar" "$RARDIR/unrar" "$RARDIR/default.sfx" "$RARDIR/rarfiles.lst" "$APP/Contents/Resources/"
 cp "$RARDIR/license.txt" "$APP/Contents/Resources/rar-license.txt" 2>/dev/null || true

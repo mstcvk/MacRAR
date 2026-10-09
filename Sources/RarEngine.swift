@@ -186,7 +186,7 @@ enum RarRunner {
         last.standardError = pipe
         for p in processes {
             do { try p.run() } catch {
-                return RarResult(code: -1, output: "Çalıştırılamadı: \(error.localizedDescription)")
+                return RarResult(code: -1, output: LF("Çalıştırılamadı: %@", error.localizedDescription))
             }
         }
         let data = pipe.fileHandleForReading.readDataToEndOfFile()
@@ -334,7 +334,7 @@ enum RarRunner {
         }
         flush()
 
-        var parts: [String] = [type.isEmpty ? "arşiv" : type]
+        var parts: [String] = [type.isEmpty ? L("arşiv") : type]
         if Formats.isTarCompressed(path) {
             let outerExt = (path as NSString).pathExtension.lowercased()
             parts = ["tar + \(outerExt)"]
@@ -416,7 +416,7 @@ final class RarJob {
         for p in procs {
             do { try p.run() } catch {
                 DispatchQueue.main.async {
-                    completion(RarResult(code: -1, output: "Çalıştırılamadı: \(error.localizedDescription)"))
+                    completion(RarResult(code: -1, output: LF("Çalıştırılamadı: %@", error.localizedDescription)))
                 }
                 return
             }

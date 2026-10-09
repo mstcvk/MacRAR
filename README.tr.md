@@ -18,11 +18,11 @@ Uygulama yaklaşık 2.000 satır Swift'tir, Xcode projesi gerektirmez (Command L
 
 | RAR arşivi görüntüleme | Şifreli ZIP (kilit sütunu) |
 |---|---|
-| ![Ana pencere](docs/main-window-rar.png) | ![Şifreli zip](docs/main-window-zip-encrypted.png) |
+| ![Ana pencere](docs/tr/main-window-rar.png) | ![Şifreli zip](docs/tr/main-window-zip-encrypted.png) |
 
 | Şifre sorusu | Arşiv oluşturma penceresi | Detaylı ilerleme penceresi |
 |---|---|---|
-| ![Şifre](docs/password-prompt.png) | ![Sıkıştırma](docs/compress-dialog.png) | ![İlerleme](docs/progress-window.png) |
+| ![Şifre](docs/tr/password-prompt.png) | ![Sıkıştırma](docs/tr/compress-dialog.png) | ![İlerleme](docs/tr/progress-window.png) |
 
 ## Desteklenen biçimler
 
@@ -45,6 +45,7 @@ Uygulama yaklaşık 2.000 satır Swift'tir, Xcode projesi gerektirmez (Command L
 - **İlerleme penceresi:** Toplam yüzde, tahmini kalan süre, geçen süre, işlenen dosya ve "Detayları Göster" ile açılan dosya listesi.
 - **Çok parçalı arşivler:** `.part01.rar … .partNN.rar` ve `.7z.001 … .NNN` setleri tanınır; Finder'da tüm parçaları seçseniz bile set bir kez, ilk parçadan başlayarak işlenir.
 - **Diğer:** Arşivi test et (⌘T), arşive dosya ekle (⇧⌘A), arşivden sil (⌘⌫), arşiv bilgisi (⌘I), arşiv içinde arama, dosyayı çift tıklayıp doğrudan açma, pencereye arşiv sürükleyip açma, pencereye dosya sürükleyip arşive ekleme.
+- **Dil:** Arayüz sistem diline göre Türkçe veya İngilizce açılır (Sistem Ayarları → Genel → Dil ve Bölge'deki uygulamaya özel dil seçimi de dikkate alınır). `MACRAR_LANG=tr|en` ile zorlanabilir.
 - **Finder sağ tık menüsü → Hızlı Eylemler:**
   - MacRAR ile Aç
   - MacRAR • Buraya Çıkart
@@ -103,6 +104,7 @@ Otomatik test için ortam değişkenleri (ekran kaydı izni gerektirmez):
 
 | Değişken | Etkisi |
 |---|---|
+| `MACRAR_LANG=en` / `tr` | arayüz dilini zorlar |
 | `MACRAR_SNAPSHOT=/yol/önek` | `MACRAR_SNAPSHOT_DELAY` saniye sonra (varsayılan 2) açık pencereleri `önek-N.png` olarak kaydedip çıkar |
 | `MACRAR_DEBUG_PASSWORD=…` | şifre sorularını otomatik yanıtlar |
 | `MACRAR_DEBUG_CONFIRM=1` | onay pencerelerini varsayılan düğmeyle yanıtlar |

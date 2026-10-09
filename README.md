@@ -58,6 +58,9 @@ The whole app is about 2,000 lines of Swift, needs no Xcode project (Command Lin
 - Options the chosen format cannot support are disabled automatically.
 - Add files to an existing RAR/7z/ZIP/TAR archive (drag files onto the window or use ⇧⌘A) and delete entries from it (⌘⌫).
 
+**Languages**
+- The interface is in English or Turkish, following the system language (or the per-app language chosen in System Settings → General → Language & Region). `MACRAR_LANG=tr|en` overrides it.
+
 **Finder integration**
 - Seven Quick Actions in Finder's right-click menu: *Open with MacRAR*, *Extract Here*, *Extract to Folder*, *Extract to…*, *Test*, *Compress (RAR)*, *Create Archive…*.
 - Registers as the owner of `.rar` and as an alternate handler for ZIP, 7z, TAR, GZ, BZ2, XZ, ZST, CAB, ISO and more, so they appear in *Open With*. One menu command makes MacRAR the default for all of them.
@@ -140,6 +143,7 @@ Environment variables used for automated testing (no screen recording permission
 
 | Variable | Effect |
 |---|---|
+| `MACRAR_LANG=en` / `tr` | force the UI language |
 | `MACRAR_SNAPSHOT=/path/prefix` | after `MACRAR_SNAPSHOT_DELAY` seconds (default 2) save every open window as `prefix-N.png` and exit |
 | `MACRAR_DEBUG_PASSWORD=…` | answer password prompts automatically |
 | `MACRAR_DEBUG_CONFIRM=1` | answer confirmation dialogs with the default button |
