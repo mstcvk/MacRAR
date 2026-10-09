@@ -44,7 +44,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             handleOpen(files)
         }
         NSApp.activate(ignoringOtherApps: true)
+        // Yalnızca pencereli kullanımda, günde bir kez
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3) { UpdateChecker.checkAutomatically() }
     }
+
+    @objc func checkForUpdates(_ sender: Any?) { UpdateChecker.check(manual: true) }
 
     func application(_ sender: NSApplication, openFiles filenames: [String]) {
         if let log = ProcessInfo.processInfo.environment["MACRAR_DEBUG_LOG"] {
@@ -341,6 +345,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let appItem = NSMenuItem(); main.addItem(appItem)
         let app = NSMenu()
         app.addItem(withTitle: L("MacRAR Hakkında"), action: #selector(showAbout(_:)), keyEquivalent: "")
+        app.addItem(withTitle: L("Güncellemeleri Denetle…"), action: #selector(checkForUpdates(_:)), keyEquivalent: "")
         app.addItem(.separator())
         app.addItem(withTitle: L("RAR Dosyaları İçin Varsayılan Uygulama Yap"), action: #selector(makeDefault(_:)), keyEquivalent: "")
         app.addItem(withTitle: L("Tüm Arşivler (ZIP, 7z, TAR…) İçin Varsayılan Yap"), action: #selector(makeDefaultForAll(_:)), keyEquivalent: "")

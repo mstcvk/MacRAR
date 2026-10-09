@@ -442,7 +442,7 @@ struct CompressOptions {
             if let v = volumeSize, !v.isEmpty { a.append("-v\(v)") }
             if sfx { a.append("-sfx") }
             if deleteAfter { a.append("-df") }
-            if let pw = password, !pw.isEmpty { a.append(RarRunner.passwordArg(pw, encryptHeaders: encryptNames)) } else { a.append("-p-") }
+            a += RarRunner.rarPasswordArgs(password, encryptHeaders: encryptNames)
             return [Step(title: L("Sıkıştırılıyor"), tool: .rar, args: a + ["--", archivePath] + items)]
 
         case .sevenZip:

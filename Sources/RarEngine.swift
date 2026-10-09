@@ -135,10 +135,17 @@ enum RarRunner {
         }
     }
 
-    /// rar/unrar için şifre argümanı
+    /// unrar (x / t / lt) için şifre argümanı: "-p-" = şifre sorma
     static func passwordArg(_ pw: String?, encryptHeaders: Bool = false) -> String {
         guard let pw, !pw.isEmpty else { return "-p-" }
         return (encryptHeaders ? "-hp" : "-p") + pw
+    }
+
+    /// rar (a / d) için şifre argümanları. DİKKAT: rar, "-p-" verilince "-" karakterini şifre olarak kullanır;
+    /// bu yüzden şifre yoksa hiçbir anahtar verilmez.
+    static func rarPasswordArgs(_ pw: String?, encryptHeaders: Bool = false) -> [String] {
+        guard let pw, !pw.isEmpty else { return [] }
+        return [(encryptHeaders ? "-hp" : "-p") + pw]
     }
 
     /// 7zz için şifre argümanı ("-p" tek başına: boş şifre, etkileşimli sorma yok)

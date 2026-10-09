@@ -79,6 +79,13 @@ enum L10n {
         "Finder hızlı eylemleri yüklendi": "Finder Quick Actions installed",
         "%d hızlı eylem kuruldu. Finder'da bir dosyaya sağ tıklayıp \"Hızlı Eylemler\" menüsünden kullanabilirsiniz.": "%d Quick Action(s) installed. Right-click a file in Finder and use the \"Quick Actions\" menu.",
         "Geliştirici: Mesut Çevik\n": "Developer: Mesut Çevik\n",
+        // Güncelleme
+        "Güncellemeleri Denetle…": "Check for Updates…", "Güncelleme denetlenemedi": "Could not check for updates",
+        "GitHub'a ulaşılamadı. İnternet bağlantınızı kontrol edin.": "GitHub could not be reached. Check your internet connection.",
+        "Güncel sürümü kullanıyorsunuz": "You are up to date", "MacRAR %@ en son sürüm.": "MacRAR %@ is the latest version.",
+        "MacRAR %@ sürümü çıktı": "MacRAR %@ is available",
+        "Kullandığınız sürüm: %@. Yeni sürümü GitHub'dan indirip Uygulamalar klasörüne sürükleyerek güncelleyebilirsiniz.": "You are using version %@. Download the new version from GitHub and drag it into Applications to update.",
+        "İndir": "Download", "Daha Sonra": "Later", "Bu Sürümü Atla": "Skip This Version",
         // Hızlı eylemler
         "MacRAR ile Aç": "Open with MacRAR", "MacRAR: Buraya Çıkart": "MacRAR: Extract Here", "MacRAR: Klasöre Çıkart": "MacRAR: Extract to Folder",
         "MacRAR ile Sıkıştır…": "Compress with MacRAR…", "MacRAR • Buraya Çıkart": "MacRAR • Extract Here", "MacRAR • Klasöre Çıkart": "MacRAR • Extract to Folder",

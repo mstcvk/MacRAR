@@ -295,7 +295,7 @@ enum Ops {
         let stages: [Stage]
         switch info.kind {
         case .rar:
-            stages = [(.rar, ["a", "-ep1", "-r", "-y", RarRunner.passwordArg(pw, encryptHeaders: info.headersEncrypted), "--", info.path] + items)]
+            stages = [(.rar, ["a", "-ep1", "-r", "-y"] + RarRunner.rarPasswordArgs(pw, encryptHeaders: info.headersEncrypted) + ["--", info.path] + items)]
         case .other:
             var args = ["a", "-y", "-bsp1", "-bb1", RarRunner.passwordArg7z(pw)]
             if info.headersEncrypted { args.append("-mhe=on") }
@@ -326,7 +326,7 @@ enum Ops {
         let stages: [Stage]
         switch info.kind {
         case .rar:
-            stages = [(.rar, ["d", "-y", RarRunner.passwordArg(pw), "--", info.path] + names)]
+            stages = [(.rar, ["d", "-y"] + RarRunner.rarPasswordArgs(pw) + ["--", info.path] + names)]
         case .other:
             stages = [(.sevenZip, ["d", "-y", "-bsp1", "-bb1", RarRunner.passwordArg7z(pw), "--", info.path] + names)]
         }

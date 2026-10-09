@@ -45,6 +45,7 @@ Uygulama yaklaşık 2.000 satır Swift'tir, Xcode projesi gerektirmez (Command L
 - **İlerleme penceresi:** Toplam yüzde, tahmini kalan süre, geçen süre, işlenen dosya ve "Detayları Göster" ile açılan dosya listesi.
 - **Çok parçalı arşivler:** `.part01.rar … .partNN.rar` ve `.7z.001 … .NNN` setleri tanınır; Finder'da tüm parçaları seçseniz bile set bir kez, ilk parçadan başlayarak işlenir.
 - **Diğer:** Arşivi test et (⌘T), arşive dosya ekle (⇧⌘A), arşivden sil (⌘⌫), arşiv bilgisi (⌘I), arşiv içinde arama, dosyayı çift tıklayıp doğrudan açma, pencereye arşiv sürükleyip açma, pencereye dosya sürükleyip arşive ekleme.
+- **Güncelleme:** Uygulama günde bir kez GitHub Releases'ı denetler, yeni sürüm varsa indirmeyi önerir; *MacRAR → Güncellemeleri Denetle…* ile elle de denetlenir. `MACRAR_NO_UPDATE_CHECK=1` ile kapatılabilir.
 - **Dil:** Arayüz sistem diline göre Türkçe veya İngilizce açılır (Sistem Ayarları → Genel → Dil ve Bölge'deki uygulamaya özel dil seçimi de dikkate alınır). `MACRAR_LANG=tr|en` ile zorlanabilir.
 - **Finder sağ tık menüsü:** Arşiv seçiliyken doğrudan menüde "MacRAR ile Aç", "MacRAR: Buraya Çıkart", "MacRAR: Klasöre Çıkart"; her türlü seçimde "MacRAR ile Sıkıştır…" görünür. "Hızlı Eylemler" alt menüsünde ise "MacRAR • Şuraya Çıkart…", "MacRAR • Test Et" ve soru sormadan RAR oluşturan "MacRAR • Sıkıştır (RAR)" bulunur.
 
