@@ -8,6 +8,7 @@
 #      (parolayı komut kendisi sorar; betiğe yazılmaz)
 #
 # Kullanım:  ./release.sh                      → sertifikayı otomatik bulur, profil adı "MacRAR"
+#            ./release.sh publish              → ek olarak DMG ve ZIP'i GitHub Releases'a yükler (gh gerekir)
 #            IDENTITY="Developer ID Application: Ad (TEAMID)" PROFILE=MacRAR ./release.sh
 set -e
 cd "$(dirname "$0")"
@@ -37,3 +38,28 @@ xcrun stapler staple "$APP"
 rm -f "$ZIP"
 ditto -c -k --keepParent "$APP" "$ZIP"
 spctl --assess --type execute --verbose=2 "$APP" && echo "✔ Gatekeeper onaylı: $ZIP"
+
+echo "▸ DMG oluşturuluyor"
+DMG="dist/MacRAR-$VERSION.dmg"
+STAGE=$(mktemp -d)
+cp -R "$APP" "$STAGE/"
+ln -s /Applications "$STAGE/Applications"
+rm -f "$DMG"
+hdiutil create -volname "MacRAR" -srcfolder "$STAGE" -ov -format UDZO -quiet "$DMG"
+rm -rf "$STAGE"
+codesign --force --timestamp --sign "$IDENTITY" "$DMG"
+echo "▸ DMG notarize ediliyor"
+xcrun notarytool submit "$DMG" --keychain-profile "$PROFILE" --wait
+xcrun stapler staple "$DMG"
+spctl --assess --type open --context context:primary-signature --verbose=2 "$DMG" && echo "✔ Gatekeeper onaylı: $DMG"
+
+if [[ "$1" == "publish" ]]; then
+  echo "▸ GitHub Releases'a yükleniyor (v$VERSION)"
+  export PATH="$HOME/.local/bin:$PATH"
+  if gh release view "v$VERSION" >/dev/null 2>&1; then
+    gh release upload "v$VERSION" "$DMG" "$ZIP" --clobber
+  else
+    gh release create "v$VERSION" "$DMG" "$ZIP" --title "MacRAR $VERSION" --notes-file RELEASE_NOTES.md
+  fi
+  echo "✔ Yayınlandı: $(gh release view "v$VERSION" --json url -q .url)"
+fi
