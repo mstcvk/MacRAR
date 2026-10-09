@@ -1,0 +1,328 @@
+import AppKit
+
+/// Tüm arşiv işlemleri: hem pencereden hem de Finder hızlı eylemlerinden kullanılır.
+enum Ops {
+
+    // MARK: Ortak iş çalıştırıcı (ilerleme penceresiyle)
+
+    static func runJob(title: String, stages: [Stage], cwd: String? = nil,
+                       host: NSWindow?, totalFiles: Int?, stripPrefix: String? = nil,
+                       completion: @escaping (RarResult) -> Void) {
+        let panel = ProgressPanel(title: title)
+        panel.stripPrefix = stripPrefix
+        let job = RarJob()
+        var sawPercent = false
+        var fileIndex = 0
+        var lastName = ""
+        job.onEvent = { ev in
+            switch ev {
+            case .file(let name):
+                panel.setFile(name)
+                if name != lastName {
+                    lastName = name
+                    fileIndex += 1
+                    // Yüzde bilgisi gelmeyen boru hattı işlemlerinde dosya sayısına göre ilerle
+                    if !sawPercent, let total = totalFiles, total > 0 {
+                        panel.setFraction(Double(min(fileIndex, total)) / Double(total))
+                    }
+                }
+            case .progress(let pct):
+                // rar/unrar/7zz yüzdesi arşivin toplam ilerlemesidir
+                sawPercent = true
+                panel.setFraction(Double(pct) / 100.0)
+            }
+        }
+        panel.onCancel = { job.cancel() }
+        panel.show(on: host)
+        job.start(stages: stages, cwd: cwd) { result in
+            panel.dismiss()
+            completion(result)
+        }
+    }
+
+    static func runJob(title: String, tool: RarTool, args: [String], cwd: String? = nil,
+                       host: NSWindow?, totalFiles: Int?, stripPrefix: String? = nil,
+                       completion: @escaping (RarResult) -> Void) {
+        runJob(title: title, stages: [(tool, args)], cwd: cwd, host: host, totalFiles: totalFiles, stripPrefix: stripPrefix, completion: completion)
+    }
+
+    private static func name(_ path: String) -> String { (path as NSString).lastPathComponent }
+
+    // MARK: Listeleme (şifre döngüsüyle)
+
+    /// Arşivi listeler; gerekirse şifre sorar. İptalde nil döner.
+    static func listInteractive(archive: String, password: inout String?) -> ArchiveInfo? {
+        var wrong = false
+        while true {
+            switch RarRunner.list(archive, password: password) {
+            case .ok(var info):
+                if wrong { info.headersEncrypted = true }   // şifre olmadan listelenemedi
+                return info
+            case .wrongPassword:
+                guard let pw = Dialogs.askPassword(archiveName: name(archive), wrong: wrong) else { return nil }
+                password = pw
+                wrong = true
+            case .error(let r):
+                if r.notArchive {
+                    Dialogs.error("Arşiv açılamadı", "\"\(name(archive))\" desteklenen bir arşiv değil.")
+                } else {
+                    Dialogs.error("Arşiv açılamadı", r.errorSummary)
+                }
+                return nil
+            }
+        }
+    }
+
+    // MARK: Çıkartma
+
+    enum OverwriteArg { case overwrite, rename }
+
+    static func extractStages(info: ArchiveInfo, names: [String]?, dest: String, password: String?, mode: OverwriteArg) -> [Stage] {
+        let destSlash = dest.hasSuffix("/") ? dest : dest + "/"
+        switch info.kind {
+        case .rar:
+            var args = ["x", "-y", mode == .overwrite ? "-o+" : "-or", RarRunner.passwordArg(password), "--", info.path]
+            if let names { args += names }
+            args.append(destSlash)
+            return [(.unrar, args)]
+        case .other:
+            let ow = mode == .overwrite ? "-aoa" : "-aou"
+            if info.tarCompressed {
+                var inner = ["x", "-si", "-ttar", "-y", "-bb1", ow, "-o" + dest]
+                if let names { inner += ["--"] + names }
+                return [(.sevenZip, ["x", "-so", RarRunner.passwordArg7z(password), "--", info.path]),
+                        (.sevenZip, inner)]
+            }
+            var args = ["x", "-y", "-bsp1", "-bb1", ow, RarRunner.passwordArg7z(password), "-o" + dest, "--", info.path]
+            if let names { args += names }
+            return [(.sevenZip, args)]
+        }
+    }
+
+    /// names: nil ise tüm arşiv. completion(success, kullanılan şifre)
+    static func extract(info: ArchiveInfo, names: [String]?, dest: String, password: String?,
+                        host: NSWindow?, quiet: Bool = false, completion: @escaping (Bool, String?) -> Void) {
+        var pw = password
+        if info.hasEncryptedFiles, pw == nil {
+            guard let p = Dialogs.askPassword(archiveName: name(info.path)) else { completion(false, nil); return }
+            pw = p
+        }
+        // Üzerine yazma kontrolü
+        let tops: [String]
+        if let names {
+            var seen = Set<String>()
+            tops = names.compactMap { n in
+                let t = n.split(separator: "/", maxSplits: 1).first.map(String.init) ?? n
+                return seen.insert(t).inserted ? t : nil
+            }
+        } else {
+            tops = info.topLevelNames
+        }
+        let existing = tops.filter { FileManager.default.fileExists(atPath: (dest as NSString).appendingPathComponent($0)) }
+        var mode: OverwriteArg = .overwrite
+        if !existing.isEmpty {
+            switch Dialogs.askOverwrite(existing: existing, dest: dest) {
+            case .overwrite: mode = .overwrite
+            case .rename: mode = .rename
+            case .cancel: completion(false, pw); return
+            }
+        }
+        let count = names == nil ? info.entries.count : nil
+        runExtract(info: info, names: names, dest: dest, password: pw, mode: mode, host: host, count: count, quiet: quiet, completion: completion)
+    }
+
+    private static func runExtract(info: ArchiveInfo, names: [String]?, dest: String, password: String?, mode: OverwriteArg,
+                                   host: NSWindow?, count: Int?, quiet: Bool, completion: @escaping (Bool, String?) -> Void) {
+        let stages = extractStages(info: info, names: names, dest: dest, password: password, mode: mode)
+        runJob(title: "Çıkartılıyor: \(name(info.path))", stages: stages, host: host, totalFiles: count, stripPrefix: dest) { r in
+            if r.cancelled { completion(false, password); return }
+            if r.wrongPassword {
+                guard let pw = Dialogs.askPassword(archiveName: name(info.path), wrong: true) else { completion(false, password); return }
+                runExtract(info: info, names: names, dest: dest, password: pw, mode: mode, host: host, count: count, quiet: quiet, completion: completion)
+                return
+            }
+            if !r.ok {
+                Dialogs.error("Çıkartma başarısız", r.errorSummary)
+                completion(false, password)
+                return
+            }
+            if r.code == 1, !quiet {
+                Dialogs.info("Çıkartma uyarılarla tamamlandı", r.errorSummary)
+            }
+            completion(true, password)
+        }
+    }
+
+    // MARK: Test
+
+    static func test(info: ArchiveInfo, password: String?, host: NSWindow?, completion: @escaping (Bool, String?) -> Void) {
+        var pw = password
+        if info.hasEncryptedFiles, pw == nil {
+            guard let p = Dialogs.askPassword(archiveName: name(info.path)) else { completion(false, nil); return }
+            pw = p
+        }
+        runTest(info: info, password: pw, host: host, completion: completion)
+    }
+
+    private static func runTest(info: ArchiveInfo, password: String?, host: NSWindow?, completion: @escaping (Bool, String?) -> Void) {
+        let stages: [Stage]
+        switch info.kind {
+        case .rar:
+            stages = [(.unrar, ["t", "-y", RarRunner.passwordArg(password), "--", info.path])]
+        case .other:
+            if info.tarCompressed {
+                stages = [(.sevenZip, ["x", "-so", RarRunner.passwordArg7z(password), "--", info.path]),
+                          (.sevenZip, ["t", "-si", "-ttar", "-bb1"])]
+            } else {
+                stages = [(.sevenZip, ["t", "-bsp1", "-bb1", RarRunner.passwordArg7z(password), "--", info.path])]
+            }
+        }
+        runJob(title: "Test ediliyor: \(name(info.path))", stages: stages, host: host, totalFiles: info.entries.count) { r in
+            if r.cancelled { completion(false, password); return }
+            if r.wrongPassword {
+                guard let pw = Dialogs.askPassword(archiveName: name(info.path), wrong: true) else { completion(false, password); return }
+                runTest(info: info, password: pw, host: host, completion: completion)
+                return
+            }
+            if r.ok {
+                Dialogs.info("Test başarılı", "\"\(name(info.path))\" arşivinde hata bulunmadı.")
+            } else {
+                Dialogs.error("Test başarısız", r.errorSummary)
+            }
+            completion(r.ok, password)
+        }
+    }
+
+    // MARK: Sıkıştırma
+
+    static func compress(items: [String], options: CompressOptions, host: NSWindow?, completion: @escaping (Bool, String) -> Void) {
+        var o = options
+        if FileManager.default.fileExists(atPath: o.archivePath) {
+            let alert = NSAlert()
+            alert.messageText = "\"\(name(o.archivePath))\" zaten var"
+            if o.format.supportsAppend {
+                alert.informativeText = "Dosyalar mevcut arşive eklensin mi, yoksa yeni bir arşiv mi oluşturulsun?"
+                alert.addButton(withTitle: "Mevcut Arşive Ekle")
+                alert.addButton(withTitle: "Yeni Arşiv Oluştur")
+                alert.addButton(withTitle: "İptal")
+                Dialogs.activate()
+                switch alert.runModal() {
+                case .alertFirstButtonReturn: break
+                case .alertSecondButtonReturn: o.archivePath = uniquePath(o.archivePath)
+                default: completion(false, o.archivePath); return
+                }
+            } else {
+                alert.informativeText = "Bu biçimde mevcut arşive ekleme yapılamaz. Yeni bir arşiv oluşturulsun mu?"
+                alert.addButton(withTitle: "Yeni Arşiv Oluştur")
+                alert.addButton(withTitle: "İptal")
+                Dialogs.activate()
+                if alert.runModal() == .alertFirstButtonReturn { o.archivePath = uniquePath(o.archivePath) } else { completion(false, o.archivePath); return }
+            }
+        }
+        let cwd = (o.archivePath as NSString).deletingLastPathComponent
+        let steps = o.buildSteps(items: items)
+        runSteps(steps, index: 0, archive: o.archivePath, cwd: cwd, host: host, completion: completion)
+    }
+
+    private static func runSteps(_ steps: [CompressOptions.Step], index: Int, archive: String, cwd: String,
+                                 host: NSWindow?, completion: @escaping (Bool, String) -> Void) {
+        guard index < steps.count else { completion(true, archive); return }
+        let step = steps[index]
+        let suffix = steps.count > 1 ? " (\(index + 1)/\(steps.count))" : ""
+        runJob(title: "\(step.title): \(name(archive))\(suffix)", tool: step.tool, args: step.args, cwd: cwd, host: host, totalFiles: nil) { r in
+            step.cleanup?()
+            if r.cancelled {
+                steps[(index + 1)...].forEach { $0.cleanup?() }
+                completion(false, archive); return
+            }
+            if !r.ok {
+                steps[(index + 1)...].forEach { $0.cleanup?() }
+                Dialogs.error("Sıkıştırma başarısız", r.errorSummary)
+                completion(false, archive)
+                return
+            }
+            runSteps(steps, index: index + 1, archive: archive, cwd: cwd, host: host, completion: completion)
+        }
+    }
+
+    // MARK: Mevcut arşive dosya ekleme / silme
+
+    static func add(info: ArchiveInfo, items: [String], password: String?, host: NSWindow?, completion: @escaping (Bool, String?) -> Void) {
+        guard info.supportsModification else {
+            Dialogs.error("Desteklenmiyor", "tar.gz / tar.xz türü arşivlere dosya eklenemez. Yeni bir arşiv oluşturun.")
+            completion(false, password); return
+        }
+        var pw = password
+        if info.hasEncryptedFiles, pw == nil {
+            guard let p = Dialogs.askPassword(archiveName: name(info.path)) else { completion(false, nil); return }
+            pw = p
+        }
+        let stages: [Stage]
+        switch info.kind {
+        case .rar:
+            stages = [(.rar, ["a", "-ep1", "-r", "-y", RarRunner.passwordArg(pw, encryptHeaders: info.headersEncrypted), "--", info.path] + items)]
+        case .other:
+            var args = ["a", "-y", "-bsp1", "-bb1", RarRunner.passwordArg7z(pw)]
+            if info.headersEncrypted { args.append("-mhe=on") }
+            stages = [(.sevenZip, args + ["--", info.path] + items)]
+        }
+        runJob(title: "Ekleniyor: \(name(info.path))", stages: stages, host: host, totalFiles: nil) { r in
+            if r.cancelled { completion(false, pw); return }
+            if r.wrongPassword {
+                guard let p = Dialogs.askPassword(archiveName: name(info.path), wrong: true) else { completion(false, pw); return }
+                add(info: info, items: items, password: p, host: host, completion: completion)
+                return
+            }
+            if !r.ok { Dialogs.error("Ekleme başarısız", r.errorSummary) }
+            completion(r.ok, pw)
+        }
+    }
+
+    static func delete(info: ArchiveInfo, names: [String], password: String?, host: NSWindow?, completion: @escaping (Bool, String?) -> Void) {
+        guard info.supportsModification else {
+            Dialogs.error("Desteklenmiyor", "tar.gz / tar.xz türü arşivlerden dosya silinemez.")
+            completion(false, password); return
+        }
+        var pw = password
+        if info.headersEncrypted, pw == nil {
+            guard let p = Dialogs.askPassword(archiveName: name(info.path)) else { completion(false, nil); return }
+            pw = p
+        }
+        let stages: [Stage]
+        switch info.kind {
+        case .rar:
+            stages = [(.rar, ["d", "-y", RarRunner.passwordArg(pw), "--", info.path] + names)]
+        case .other:
+            stages = [(.sevenZip, ["d", "-y", "-bsp1", "-bb1", RarRunner.passwordArg7z(pw), "--", info.path] + names)]
+        }
+        runJob(title: "Siliniyor: \(name(info.path))", stages: stages, host: host, totalFiles: nil) { r in
+            if r.cancelled { completion(false, pw); return }
+            if r.wrongPassword {
+                guard let p = Dialogs.askPassword(archiveName: name(info.path), wrong: true) else { completion(false, pw); return }
+                delete(info: info, names: names, password: p, host: host, completion: completion)
+                return
+            }
+            if !r.ok { Dialogs.error("Silme başarısız", r.errorSummary) }
+            completion(r.ok, pw)
+        }
+    }
+
+    // MARK: Hedef klasör yardımcıları
+
+    static func folderNamedAfterArchive(_ archive: String) -> String {
+        let ns = archive as NSString
+        var base = (ns.deletingPathExtension as NSString).lastPathComponent
+        // çok parçalı arşivlerde "ad.part1" → "ad", "ad.7z.001" → "ad"
+        if let r = base.range(of: #"\.part\d+$"#, options: [.regularExpression, .caseInsensitive]) { base.removeSubrange(r) }
+        if ns.pathExtension.range(of: #"^\d{3}$"#, options: .regularExpression) != nil {
+            base = (base as NSString).deletingPathExtension
+        }
+        // ad.tar.gz → ad
+        if base.lowercased().hasSuffix(".tar") { base = String(base.dropLast(4)) }
+        return (ns.deletingLastPathComponent as NSString).appendingPathComponent(base)
+    }
+
+    static func revealInFinder(_ path: String) {
+        NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
+    }
+}
