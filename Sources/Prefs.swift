@@ -86,6 +86,7 @@ final class PreferencesWindowController: NSWindowController {
             [NSGridCell.emptyContentView, languageNote],
             [label(AppInfo.isAppStore ? L("Klasörler:") : L("RAR aracı:")), toolStatus],
             [NSGridCell.emptyContentView, toolButton],
+            [label(L("Dosyalar:")), NSButton(title: L("Dosya İlişkilendirmeleri…"), target: AppDelegate.shared, action: #selector(AppDelegate.showAssociations(_:)))],
         ])
         updatesBox.isHidden = AppInfo.isAppStore
         toolStatus.font = .systemFont(ofSize: 11)

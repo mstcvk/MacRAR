@@ -64,6 +64,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         scheduleDebugSnapshot()
         if ProcessInfo.processInfo.environment["MACRAR_DEBUG_ABOUT"] != nil { showAbout(nil) }
         if ProcessInfo.processInfo.environment["MACRAR_DEBUG_PREFS"] != nil { showPreferences(nil) }
+        if let e = ProcessInfo.processInfo.environment["MACRAR_DEBUG_ASSOC_APPLY"] {
+            Associations.apply(Associations.types(for: [e]), quiet: true) { ok, failed in
+                print("assoc \(e): ok=\(ok) failed=\(failed) handler=\(Associations.currentHandler(for: [e]))"); exit(0)
+            }
+            return
+        }
         #if !APPSTORE
         if let p = ProcessInfo.processInfo.environment["MACRAR_DEBUG_RARINSTALL"] {
             do { try RarTools.install(from: URL(fileURLWithPath: p)); print("RAR kuruldu:", RarTools.version ?? "?", RarTools.installDir) }
@@ -85,10 +91,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         NSApp.activate(ignoringOtherApps: true)
         #if !APPSTORE
+        // Finder sağ tık komutları: bu kurulum (yol + sürüm) için henüz kurulmadıysa sessizce kur
+        let stamp = Bundle.main.bundlePath + "|" + (Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "")
+        if UserDefaults.standard.string(forKey: "QuickActionsInstalledFor") != stamp, Bundle.main.bundlePath.hasPrefix("/Applications/") {
+            QuickActions.installAll()
+            UserDefaults.standard.set(stamp, forKey: "QuickActionsInstalledFor")
+        }
         // Yalnızca pencereli kullanımda, günde bir kez
         DispatchQueue.main.asyncAfter(deadline: .now() + 3) { if Prefs.checkUpdates { UpdateChecker.checkAutomatically() } }
         #endif
+        // İlk açılışta dosya ilişkilendirme önerisi (yalnızca /Applications'dan çalışırken)
+        if Bundle.main.bundlePath.hasPrefix("/Applications/") || ProcessInfo.processInfo.environment["MACRAR_DEBUG_ASSOC"] != nil {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
+                if ProcessInfo.processInfo.environment["MACRAR_DEBUG_ASSOC"] != nil { Associations.show(firstLaunch: true) }
+                else { Associations.promptIfFirstLaunch() }
+            }
+        }
     }
+
+    @objc func showAssociations(_ sender: Any?) { Associations.show() }
 
     /// Finder servisinden gelen komut: uygulama açık kalır; yalnızca servis için açıldıysa ve pencere yoksa kapanır
     func runServiceCommand(_ cmd: Command) {
@@ -433,12 +454,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         app.addItem(.separator())
         app.addItem(withTitle: L("Ayarlar…"), action: #selector(showPreferences(_:)), keyEquivalent: ",")
         app.addItem(.separator())
+        app.addItem(withTitle: L("Dosya İlişkilendirmeleri…"), action: #selector(showAssociations(_:)), keyEquivalent: "")
         #if !APPSTORE
-        app.addItem(withTitle: L("RAR Dosyaları İçin Varsayılan Uygulama Yap"), action: #selector(makeDefault(_:)), keyEquivalent: "")
-        app.addItem(withTitle: L("Tüm Arşivler (ZIP, 7z, TAR…) İçin Varsayılan Yap"), action: #selector(makeDefaultForAll(_:)), keyEquivalent: "")
         app.addItem(withTitle: L("Finder Hızlı Eylemlerini (Yeniden) Yükle"), action: #selector(installQuickActionsAction(_:)), keyEquivalent: "")
-        app.addItem(.separator())
         #endif
+        app.addItem(.separator())
         app.addItem(withTitle: LF("%@'ı Gizle", AppInfo.name), action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
         let hideOthers = app.addItem(withTitle: L("Diğerlerini Gizle"), action: #selector(NSApplication.hideOtherApplications(_:)), keyEquivalent: "h")
         hideOthers.keyEquivalentModifierMask = [.command, .option]

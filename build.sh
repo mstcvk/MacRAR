@@ -96,6 +96,8 @@ else
     codesign --force --deep --sign - "$APP"
   fi
 fi
+# Build klasöründeki kopya sisteme kaydolursa Finder servisleri ikilenir; kaydı kaldır
+/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister -u "$APP" >/dev/null 2>&1 || true
 echo "✔ Derlendi: $APP"
 
 if [[ "$1" == "install" ]]; then

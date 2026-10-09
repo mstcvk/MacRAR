@@ -118,6 +118,17 @@ enum L10n {
         "%@ artık .rar dosyaları için varsayılan uygulama.": "%@ is now the default app for .rar files.",
         "\n\n7-Zip © Igor Pavlov (GNU LGPL)\nRAR açma: unRAR kodu © Alexander Roshal": "\n\n7-Zip © Igor Pavlov (GNU LGPL)\nRAR extraction: unRAR code © Alexander Roshal",
         "MacRAR • Hızlı Sıkıştır": "MacRAR • Quick Compress",
+        // Dosya ilişkilendirme
+        "Disk görüntüleri: ISO, DMG, VHD, VMDK": "Disk images: ISO, DMG, VHD, VMDK", "Paketler: PKG, JAR, APK, DEB, RPM, MSI": "Packages: PKG, JAR, APK, DEB, RPM, MSI",
+        "Önerilmez: çift tıklayınca disk bağlanmaz, arşiv gibi açılır.": "Not recommended: double-clicking will open it as an archive instead of mounting it.",
+        "Önerilmez: çift tıklayınca kurulum/çalıştırma yerine arşiv olarak açılır.": "Not recommended: double-clicking will open it as an archive instead of installing or running it.",
+        "yok": "none", "Hangi dosyalar %@ ile açılsın?": "Which files should open with %@?",
+        "Seçtiğiniz dosya türlerine çift tıklayınca bu uygulama açılır. Daha sonra menüden “Dosya İlişkilendirmeleri…” ile değiştirebilirsiniz.": "Double-clicking the selected file types will open them in this app. You can change this later from “File Associations…” in the app menu.",
+        "Seçtiğiniz dosya türlerine çift tıklayınca bu uygulama açılır.": "Double-clicking the selected file types will open them in this app.",
+        "Şu an: %@": "Currently: %@", "Varsayılan Yap": "Make Default", "Şimdi Değil": "Not Now",
+        "%@ artık %d dosya türü için varsayılan uygulama.": "%@ is now the default app for %d file types.", "Bazı türler ayarlanamadı": "Some types could not be set",
+        "Dosya İlişkilendirmeleri…": "File Associations…", "macOS her dosya türü için ayrıca onay isteyecek.": "macOS will ask you to confirm each file type.",
+        "Diğer arşivler: TAR, TGZ, BZ2, XZ, ZST, ZIPX, CAB, LZH, ARJ, CPIO…": "Other archives: TAR, TGZ, BZ2, XZ, ZST, ZIPX, CAB, LZH, ARJ, CPIO…", "Dosyalar:": "Files:",
         // Güncelleme
         "Güncellemeleri Denetle…": "Check for Updates…", "Güncelleme denetlenemedi": "Could not check for updates",
         "GitHub'a ulaşılamadı. İnternet bağlantınızı kontrol edin.": "GitHub could not be reached. Check your internet connection.",
