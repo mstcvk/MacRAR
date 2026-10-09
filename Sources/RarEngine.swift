@@ -3,7 +3,7 @@ import Foundation
 // MARK: - Model
 
 enum ArchiveKind {
-    case rar        // unrar / rar
+    case rar        // okuma 7zz, yazma (isteğe bağlı) kullanıcının RAR aracı
     case other      // 7zz (zip, 7z, tar, gz, xz, bz2, zst, iso, cab, ...)
 }
 
@@ -46,7 +46,11 @@ struct ArchiveInfo {
         return out
     }
     /// Dosya ekleme / silme desteklenir mi?
-    var supportsModification: Bool { !tarCompressed }
+    var supportsModification: Bool {
+        if tarCompressed { return false }
+        if kind == .rar { return !AppInfo.isAppStore }   // GitHub sürümünde RAR aracı istenir
+        return true
+    }
 }
 
 struct RarResult {
@@ -78,7 +82,7 @@ struct RarResult {
     }
 }
 
-enum RarTool { case rar, unrar, sevenZip }
+enum RarTool { case rar, sevenZip }
 
 typealias Stage = (tool: RarTool, args: [String])
 
@@ -105,6 +109,13 @@ enum Formats {
         return .other
     }
 
+    static func filterArchives(_ paths: [String]) -> [String] { paths.filter { isArchive($0) } }
+
+    static func isMultiVolume(_ path: String) -> Bool {
+        let name = (path as NSString).lastPathComponent
+        return name.range(of: #"\.part\d+\.rar$|\.\d{3}$|\.r\d\d$|\.z\d\d$"#, options: [.regularExpression, .caseInsensitive]) != nil
+    }
+
     static func isTarCompressed(_ path: String) -> Bool {
         let lower = (path as NSString).lastPathComponent.lowercased()
         let ext = (lower as NSString).pathExtension
@@ -121,7 +132,7 @@ enum Formats {
 enum RarRunner {
     static let resourceDir: URL = {
         if let r = Bundle.main.resourceURL,
-           FileManager.default.fileExists(atPath: r.appendingPathComponent("unrar").path) {
+           FileManager.default.fileExists(atPath: r.appendingPathComponent("7zz").path) {
             return r
         }
         return URL(fileURLWithPath: CommandLine.arguments[0]).deletingLastPathComponent()
@@ -129,13 +140,12 @@ enum RarRunner {
 
     static func url(_ tool: RarTool) -> URL {
         switch tool {
-        case .rar: return resourceDir.appendingPathComponent("rar")
-        case .unrar: return resourceDir.appendingPathComponent("unrar")
+        case .rar: return RarTools.rarURL ?? URL(fileURLWithPath: "/nonexistent/rar")
         case .sevenZip: return resourceDir.appendingPathComponent("7zz")
         }
     }
 
-    /// unrar (x / t / lt) için şifre argümanı: "-p-" = şifre sorma
+    /// (eski) unrar şifre argümanı: "-p-" = şifre sorma
     static func passwordArg(_ pw: String?, encryptHeaders: Bool = false) -> String {
         guard let pw, !pw.isEmpty else { return "-p-" }
         return (encryptHeaders ? "-hp" : "-p") + pw
@@ -207,83 +217,26 @@ enum RarRunner {
         case error(RarResult)
     }
 
+    /// Tüm biçimler (RAR dahil) 7zz ile okunur
     static func listStages(_ path: String, password: String?) -> [Stage] {
-        switch Formats.kind(of: path) {
-        case .rar:
-            return [(.unrar, ["lt", "-y", passwordArg(password), "--", path])]
-        case .other:
-            if Formats.isTarCompressed(path) {
-                return [(.sevenZip, ["x", "-so", passwordArg7z(password), "--", path]),
-                        (.sevenZip, ["l", "-si", "-ttar", "-slt"])]
-            }
-            return [(.sevenZip, ["l", "-slt", passwordArg7z(password), "--", path])]
+        if Formats.isTarCompressed(path) {
+            return [(.sevenZip, ["x", "-so", passwordArg7z(password), "--", path]),
+                    (.sevenZip, ["l", "-si", "-ttar", "-slt"])]
         }
+        return [(.sevenZip, ["l", "-slt", passwordArg7z(password), "--", path])]
     }
 
     static func list(_ path: String, password: String?) -> ListOutcome {
-        let kind = Formats.kind(of: path)
         let r = runStages(listStages(path, password: password))
         if r.wrongPassword { return .wrongPassword }
-        switch kind {
-        case .rar:
-            guard r.output.contains("Details:") else { return .error(r) }
-            if !r.ok { return .error(r) }
-            return .ok(parseRarListing(r.output, path: path))
-        case .other:
-            if r.notArchive || (!r.ok && !r.output.contains("----------")) { return .error(r) }
-            guard r.output.contains("----------") || r.output.contains("Type = ") else { return .error(r) }
-            return .ok(parse7zListing(r.output, path: path))
-        }
-    }
-
-    // MARK: unrar lt ayrıştırma
-
-    static func parseRarListing(_ out: String, path: String) -> ArchiveInfo {
-        var details = ""
-        var entries: [ArchiveEntry] = []
-        var block: [String: String] = [:]
-
-        func flush() {
-            defer { block = [:] }
-            guard let name = block["Name"], let type = block["Type"], type != "Service" else { return }
-            var e = ArchiveEntry(name: name, isDirectory: type == "Directory")
-            e.size = Int64(block["Size"] ?? "") ?? 0
-            e.packedSize = Int64(block["Packed size"] ?? "") ?? 0
-            e.ratio = block["Ratio"] ?? ""
-            if let m = block["mtime"] { e.mtime = String(m.prefix(19)) }
-            e.crc = block["CRC32"] ?? block["CRC32 MAC"] ?? ""
-            e.encrypted = (block["Flags"] ?? "").contains("encrypted")
-            e.attributes = block["Attributes"] ?? ""
-            e.compression = block["Compression"] ?? ""
-            entries.append(e)
-        }
-
-        var inEntries = false
-        for raw in out.components(separatedBy: "\n") {
-            let line = raw.trimmingCharacters(in: .whitespaces)
-            if !inEntries {
-                if line.hasPrefix("Details:") {
-                    details = String(line.dropFirst(8)).trimmingCharacters(in: .whitespaces)
-                    inEntries = true
-                }
-                continue
-            }
-            if line.isEmpty { flush(); continue }
-            guard let idx = line.firstIndex(of: ":") else { continue }
-            let key = String(line[..<idx]).trimmingCharacters(in: .whitespaces)
-            let value = String(line[line.index(after: idx)...]).trimmingCharacters(in: .whitespaces)
-            if key == "Name", block["Name"] != nil { flush() }
-            block[key] = value
-        }
-        flush()
-        var info = ArchiveInfo(path: path, kind: .rar, details: details, entries: entries)
-        info.headersEncrypted = details.contains("encrypted headers")
-        return info
+        if r.notArchive || (!r.ok && !r.output.contains("----------")) { return .error(r) }
+        guard r.output.contains("----------") || r.output.contains("Type = ") else { return .error(r) }
+        return .ok(parse7zListing(r.output, path: path, kind: Formats.kind(of: path)))
     }
 
     // MARK: 7zz l -slt ayrıştırma
 
-    static func parse7zListing(_ out: String, path: String) -> ArchiveInfo {
+    static func parse7zListing(_ out: String, path: String, kind: ArchiveKind = .other) -> ArchiveInfo {
         let lines = out.components(separatedBy: "\n")
         // Son "----------" satırından sonrası girdiler; öncesi arşiv başlık blokları
         let sepIndex = lines.lastIndex { $0.trimmingCharacters(in: .whitespaces) == "----------" }
@@ -341,14 +294,22 @@ enum RarRunner {
         }
         flush()
 
-        var parts: [String] = [type.isEmpty ? L("arşiv") : type]
+        let pretty: String
+        switch type.lowercased() {
+        case "": pretty = L("arşiv")
+        case "rar5": pretty = "RAR 5"
+        case "rar": pretty = "RAR 4"
+        case "7z": pretty = "7z"
+        default: pretty = type.uppercased()
+        }
+        var parts: [String] = [pretty]
         if Formats.isTarCompressed(path) {
             let outerExt = (path as NSString).pathExtension.lowercased()
             parts = ["tar + \(outerExt)"]
         }
         if solid { parts.append("solid") }
         if volumes > 1 { parts.append("\(volumes) volume") }
-        var info = ArchiveInfo(path: path, kind: .other, details: parts.joined(separator: ", "), entries: entries)
+        var info = ArchiveInfo(path: path, kind: kind, details: parts.joined(separator: ", "), entries: entries)
         info.headersEncrypted = false
         return info
     }
@@ -363,7 +324,7 @@ final class RarJob {
     }
 
     private var processes: [Process] = []
-    private var monitoredTool: RarTool = .unrar
+    private var monitoredTool: RarTool = .sevenZip
     private let queue = DispatchQueue(label: "macrar.job")
     private var buffer = Data()
     private var output = ""
@@ -515,7 +476,7 @@ final class RarJob {
 enum TempDirs {
     private static var created: [String] = []
     private static let lock = NSLock()
-    static func make(_ prefix: String = "MacRAR") -> String {
+    static func make(_ prefix: String = "Archiver") -> String {
         let p = FileManager.default.temporaryDirectory.appendingPathComponent("\(prefix)-\(UUID().uuidString)").path
         lock.lock(); created.append(p); lock.unlock()
         return p

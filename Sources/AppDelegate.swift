@@ -47,13 +47,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     // MARK: Yaşam döngüsü
 
+    /// Uygulama yalnızca bir Finder servisi için açıldıysa: iş bitince pencere yoksa kapanır
+    var launchedForService = false
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
         buildMenu()
         launched = true
+        FolderAccess.restore()
+        #if APPSTORE
+        NSApp.servicesProvider = ServiceProvider()
+        NSUpdateDynamicServices()
+        let isDefaultLaunch = (notification.userInfo?[NSApplication.launchIsDefaultUserInfoKey] as? Bool) ?? true
+        if !isDefaultLaunch, pendingFiles.isEmpty, pendingCommand == nil { launchedForService = true }
+        #endif
         scheduleDebugSnapshot()
         if ProcessInfo.processInfo.environment["MACRAR_DEBUG_ABOUT"] != nil { showAbout(nil) }
         if ProcessInfo.processInfo.environment["MACRAR_DEBUG_PREFS"] != nil { showPreferences(nil) }
+        #if !APPSTORE
+        if let p = ProcessInfo.processInfo.environment["MACRAR_DEBUG_RARINSTALL"] {
+            do { try RarTools.install(from: URL(fileURLWithPath: p)); print("RAR kuruldu:", RarTools.version ?? "?", RarTools.installDir) }
+            catch { print("RAR kurulamadı:", error.localizedDescription) }
+            exit(0)
+        }
+        #endif
         if let cmd = pendingCommand {
             NSApp.activate(ignoringOtherApps: true)
             runCommand(cmd)
@@ -62,16 +79,40 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let files = pendingFiles
         pendingFiles = []
         if files.isEmpty {
-            if windows.isEmpty { showEmptyWindow() }
+            if windows.isEmpty, !launchedForService { showEmptyWindow() }
         } else {
             handleOpen(files)
         }
         NSApp.activate(ignoringOtherApps: true)
+        #if !APPSTORE
         // Yalnızca pencereli kullanımda, günde bir kez
         DispatchQueue.main.asyncAfter(deadline: .now() + 3) { if Prefs.checkUpdates { UpdateChecker.checkAutomatically() } }
+        #endif
     }
 
-    @objc func checkForUpdates(_ sender: Any?) { UpdateChecker.check(manual: true) }
+    /// Finder servisinden gelen komut: uygulama açık kalır; yalnızca servis için açıldıysa ve pencere yoksa kapanır
+    func runServiceCommand(_ cmd: Command) {
+        serviceMode = true
+        NSApp.activate(ignoringOtherApps: true)
+        runCommand(cmd)
+    }
+    private var serviceMode = false
+
+    /// Komut bitti: komut satırı modunda çık; servis modunda gerekirse çık
+    private func finishCommand() {
+        if serviceMode {
+            serviceMode = false
+            if launchedForService, windows.allSatisfy({ !($0.window?.isVisible ?? false) }) { NSApp.terminate(nil) }
+            return
+        }
+        NSApp.terminate(nil)
+    }
+
+    @objc func checkForUpdates(_ sender: Any?) {
+        #if !APPSTORE
+        UpdateChecker.check(manual: true)
+        #endif
+    }
 
     func application(_ sender: NSApplication, openFiles filenames: [String]) {
         if let log = ProcessInfo.processInfo.environment["MACRAR_DEBUG_LOG"] {
@@ -104,7 +145,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         handleOpen(files)
     }
 
-    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { !headless }
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { !headless && !serviceMode }
 
     func applicationWillTerminate(_ notification: Notification) { TempDirs.cleanupAll() }
 
@@ -184,11 +225,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private func runCommand(_ cmd: Command) {
         switch cmd {
         case .setDefault:
-            setDefaultHandler { _ in NSApp.terminate(nil) }
+            #if APPSTORE
+            finishCommand()
+            #else
+            setDefaultHandler { _ in self.finishCommand() }
+            #endif
         case .installQuickActions:
+            #if !APPSTORE
             let n = QuickActions.installAll()
             print("\(n) hızlı eylem kuruldu: \(QuickActions.servicesDir)")
-            NSApp.terminate(nil)
+            #endif
+            self.finishCommand()
         case .extractHere(let a):
             processArchives(Self.dedupeVolumes(a), dest: { ($0 as NSString).deletingLastPathComponent })
         case .extractFolder(let a):
@@ -198,14 +245,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             guard let first = list.first,
                   let d = Dialogs.chooseFolder(title: L("Nereye çıkartılsın?"), prompt: L("Çıkart"),
                                                initial: (first as NSString).deletingLastPathComponent) else {
-                NSApp.terminate(nil); return
+                self.finishCommand(); return
             }
             processArchives(list, dest: { _ in d })
         case .test(let a):
             testArchives(Self.dedupeVolumes(a))
         case .compress(let items):
             let existing = items.filter { FileManager.default.fileExists(atPath: $0) }
-            guard !existing.isEmpty else { NSApp.terminate(nil); return }
+            guard !existing.isEmpty else { self.finishCommand(); return }
             var opts = CompressOptions.withDefaults(for: existing)
             // Hata ayıklama: MACRAR_DEBUG_FORMAT=zip|7z|tar.gz… ve MACRAR_DEBUG_PASSWORD ile biçim/şifre seçimi
             if let f = ProcessInfo.processInfo.environment["MACRAR_DEBUG_FORMAT"],
@@ -217,12 +264,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
             Ops.compress(items: existing, options: opts, host: nil) { ok, path in
                 if ok, Prefs.revealAfterCompress { Ops.revealInFinder(path) }
-                NSApp.terminate(nil)
+                self.finishCommand()
             }
         case .compressDialog(let items):
             let existing = items.filter { FileManager.default.fileExists(atPath: $0) }
-            guard !existing.isEmpty else { NSApp.terminate(nil); return }
-            compressWithDialog(items: existing, host: nil) { _ in NSApp.terminate(nil) }
+            guard !existing.isEmpty else { self.finishCommand(); return }
+            compressWithDialog(items: existing, host: nil) { _ in self.finishCommand() }
         }
     }
 
@@ -253,20 +300,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     private func processArchives(_ archives: [String], dest: @escaping (String) -> String, index: Int = 0) {
-        guard index < archives.count else { NSApp.terminate(nil); return }
+        guard index < archives.count else { finishCommand(); return }
         let a = archives[index]
         var pw: String? = nil
         guard let info = Ops.listInteractive(archive: a, password: &pw) else {
             processArchives(archives, dest: dest, index: index + 1)
             return
         }
-        Ops.extract(info: info, names: nil, dest: dest(a), password: pw, host: nil) { [weak self] _, _ in
+        let target = dest(a)
+        Ops.extract(info: info, names: nil, dest: target, password: pw, host: nil) { [weak self] ok, _ in
+            if ok, index == archives.count - 1 { Ops.revealExtracted(info: info, names: nil, dest: target) }
             self?.processArchives(archives, dest: dest, index: index + 1)
         }
     }
 
     private func testArchives(_ archives: [String], index: Int = 0) {
-        guard index < archives.count else { NSApp.terminate(nil); return }
+        guard index < archives.count else { finishCommand(); return }
         let a = archives[index]
         var pw: String? = nil
         guard let info = Ops.listInteractive(archive: a, password: &pw) else {
@@ -328,7 +377,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             if let err {
                 Dialogs.error(L("Varsayılan uygulama ayarlanamadı"), err.localizedDescription)
             } else {
-                Dialogs.info(L("Tamam"), L("MacRAR artık yaygın arşiv biçimleri için varsayılan uygulama."))
+                Dialogs.info(L("Tamam"), LF("%@ artık yaygın arşiv biçimleri için varsayılan uygulama.", AppInfo.name))
             }
         }
     }
@@ -338,14 +387,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             if let err {
                 Dialogs.error(L("Varsayılan uygulama ayarlanamadı"), err.localizedDescription)
             } else {
-                Dialogs.info(L("Tamam"), L("MacRAR artık .rar dosyaları için varsayılan uygulama."))
+                Dialogs.info(L("Tamam"), LF("%@ artık .rar dosyaları için varsayılan uygulama.", AppInfo.name))
             }
         }
     }
 
     @objc func installQuickActionsAction(_ sender: Any?) {
+        #if !APPSTORE
         let n = QuickActions.installAll()
         Dialogs.info(L("Finder hızlı eylemleri yüklendi"), LF("%d hızlı eylem kuruldu. Finder'da bir dosyaya sağ tıklayıp \"Hızlı Eylemler\" menüsünden kullanabilirsiniz.", n))
+        #endif
     }
 
     // MARK: Hakkında
@@ -359,11 +410,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         link[.link] = URL(string: "https://github.com/mstcvk/MacRAR")!
         link[.foregroundColor] = NSColor.linkColor
         credits.append(NSAttributedString(string: "github.com/mstcvk/MacRAR", attributes: link))
-        credits.append(NSAttributedString(string: "\n\nRAR/UNRAR © Alexander Roshal (RARLAB)\n7-Zip © Igor Pavlov", attributes: [.font: NSFont.systemFont(ofSize: 10), .foregroundColor: NSColor.secondaryLabelColor, .paragraphStyle: para]))
+        credits.append(NSAttributedString(string: L("\n\n7-Zip © Igor Pavlov (GNU LGPL)\nRAR açma: unRAR kodu © Alexander Roshal"), attributes: [.font: NSFont.systemFont(ofSize: 10), .foregroundColor: NSColor.secondaryLabelColor, .paragraphStyle: para]))
         NSApp.activate(ignoringOtherApps: true)
         NSApp.orderFrontStandardAboutPanel(options: [
             .credits: credits,
-            .applicationName: "MacRAR",
+            .applicationName: AppInfo.name,
             NSApplication.AboutPanelOptionKey(rawValue: "Copyright"): "© 2026 Mesut Çevik",
         ])
     }
@@ -375,21 +426,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         let appItem = NSMenuItem(); main.addItem(appItem)
         let app = NSMenu()
-        app.addItem(withTitle: L("MacRAR Hakkında"), action: #selector(showAbout(_:)), keyEquivalent: "")
+        app.addItem(withTitle: LF("%@ Hakkında", AppInfo.name), action: #selector(showAbout(_:)), keyEquivalent: "")
+        #if !APPSTORE
         app.addItem(withTitle: L("Güncellemeleri Denetle…"), action: #selector(checkForUpdates(_:)), keyEquivalent: "")
+        #endif
         app.addItem(.separator())
         app.addItem(withTitle: L("Ayarlar…"), action: #selector(showPreferences(_:)), keyEquivalent: ",")
         app.addItem(.separator())
+        #if !APPSTORE
         app.addItem(withTitle: L("RAR Dosyaları İçin Varsayılan Uygulama Yap"), action: #selector(makeDefault(_:)), keyEquivalent: "")
         app.addItem(withTitle: L("Tüm Arşivler (ZIP, 7z, TAR…) İçin Varsayılan Yap"), action: #selector(makeDefaultForAll(_:)), keyEquivalent: "")
         app.addItem(withTitle: L("Finder Hızlı Eylemlerini (Yeniden) Yükle"), action: #selector(installQuickActionsAction(_:)), keyEquivalent: "")
         app.addItem(.separator())
-        app.addItem(withTitle: L("MacRAR'ı Gizle"), action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
+        #endif
+        app.addItem(withTitle: LF("%@'ı Gizle", AppInfo.name), action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
         let hideOthers = app.addItem(withTitle: L("Diğerlerini Gizle"), action: #selector(NSApplication.hideOtherApplications(_:)), keyEquivalent: "h")
         hideOthers.keyEquivalentModifierMask = [.command, .option]
         app.addItem(withTitle: L("Tümünü Göster"), action: #selector(NSApplication.unhideAllApplications(_:)), keyEquivalent: "")
         app.addItem(.separator())
-        app.addItem(withTitle: L("MacRAR'dan Çık"), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        app.addItem(withTitle: LF("%@'dan Çık", AppInfo.name), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         appItem.submenu = app
 
         let fileItem = NSMenuItem(); main.addItem(fileItem)

@@ -205,7 +205,7 @@ final class ProgressPanel: NSWindowController {
     init(title: String) {
         let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: Self.panelWidth, height: 150),
                          styleMask: [.titled], backing: .buffered, defer: false)
-        w.title = "MacRAR"
+        w.title = AppInfo.name
         w.isReleasedWhenClosed = false
         super.init(window: w)
 
@@ -397,12 +397,14 @@ final class ProgressPanel: NSWindowController {
 // MARK: - Sıkıştırma seçenekleri
 
 enum ArchiveFormat: Int, CaseIterable {
-    case rar5 = 0, rar4, sevenZip, zip, tar, tgz, txz, tbz2
+    case rar5 = 0, sevenZip = 2, zip = 3, tar = 4, tgz = 5, txz = 6, tbz2 = 7
+
+    /// Bu sürümde oluşturulabilen biçimler (App Store sürümünde RAR yok)
+    static var creatable: [ArchiveFormat] { AppInfo.isAppStore ? allCases.filter { $0 != .rar5 } : allCases }
 
     var title: String {
         switch self {
-        case .rar5: return "RAR 5"
-        case .rar4: return "RAR 4"
+        case .rar5: return RarTools.available ? "RAR 5" : L("RAR 5 (RAR aracı gerekir)")
         case .sevenZip: return "7z"
         case .zip: return "ZIP"
         case .tar: return L("TAR (sıkıştırmasız)")
@@ -413,7 +415,7 @@ enum ArchiveFormat: Int, CaseIterable {
     }
     var ext: String {
         switch self {
-        case .rar5, .rar4: return "rar"
+        case .rar5: return "rar"
         case .sevenZip: return "7z"
         case .zip: return "zip"
         case .tar: return "tar"
@@ -422,7 +424,7 @@ enum ArchiveFormat: Int, CaseIterable {
         case .tbz2: return "tar.bz2"
         }
     }
-    var isRar: Bool { self == .rar5 || self == .rar4 }
+    var isRar: Bool { self == .rar5 }
     var isTarFamily: Bool { self == .tar || self == .tgz || self == .txz || self == .tbz2 }
     var supportsPassword: Bool { isRar || self == .sevenZip || self == .zip }
     var supportsEncryptNames: Bool { isRar || self == .sevenZip }
@@ -489,8 +491,8 @@ struct CompressOptions {
 
     func buildSteps(items: [String]) -> [Step] {
         switch format {
-        case .rar5, .rar4:
-            var a = ["a", "-ep1", "-r", "-y", "-m\(level)", format == .rar4 ? "-ma4" : "-ma5"]
+        case .rar5:
+            var a = ["a", "-ep1", "-r", "-y", "-m\(level)", "-ma5"]
             if solid { a.append("-s") }
             if recoveryRecord { a.append("-rr3") }
             if let v = volumeSize, !v.isEmpty { a.append("-v\(v)") }
@@ -518,7 +520,7 @@ struct CompressOptions {
 
         case .tgz, .txz, .tbz2:
             let outer: String = format == .tgz ? "gzip" : (format == .txz ? "xz" : "bzip2")
-            let tmpTar = NSTemporaryDirectory() + "MacRAR-\(UUID().uuidString).tar"
+            let tmpTar = NSTemporaryDirectory() + "Archiver-\(UUID().uuidString).tar"
             var step1 = ["a", "-y", "-bsp1", "-bb1", "-ttar"]
             if deleteAfter { step1.append("-sdel") }
             let step2 = ["a", "-y", "-bsp1", "-bb1", "-t\(outer)", "-mx=\(mx)", "--", archivePath, tmpTar]
@@ -539,7 +541,7 @@ struct CompressOptions {
         return o
     }
 
-    static func defaultArchivePath(for items: [String], format: ArchiveFormat = .rar5) -> String {
+    static func defaultArchivePath(for items: [String], format: ArchiveFormat = .zip) -> String {
         guard let first = items.first else { return L("arşiv") + "." + format.ext }
         let parent = (first as NSString).deletingLastPathComponent
         var base: String
@@ -594,8 +596,8 @@ final class CompressDialog: NSWindowController, NSTextFieldDelegate {
         pathRow.orientation = .horizontal
         pathField.setContentHuggingPriority(.defaultLow, for: .horizontal)
 
-        formatPopup.addItems(withTitles: ArchiveFormat.allCases.map { $0.title })
-        formatPopup.selectItem(at: options.format.rawValue)
+        formatPopup.addItems(withTitles: ArchiveFormat.creatable.map { $0.title })
+        formatPopup.selectItem(at: ArchiveFormat.creatable.firstIndex(of: options.format) ?? 0)
         formatPopup.target = self
         formatPopup.action = #selector(formatChanged)
         levelPopup.addItems(withTitles: [L("Depola (sıkıştırma yok)"), L("En hızlı"), L("Hızlı"), L("Normal"), L("İyi"), L("En iyi")])
@@ -678,7 +680,9 @@ final class CompressDialog: NSWindowController, NSTextFieldDelegate {
     }
 
     private var selectedFormat: ArchiveFormat {
-        ArchiveFormat(rawValue: formatPopup.indexOfSelectedItem) ?? .rar5
+        let list = ArchiveFormat.creatable
+        let i = formatPopup.indexOfSelectedItem
+        return i >= 0 && i < list.count ? list[i] : (list.first ?? .zip)
     }
 
     @objc private func formatChanged() {
@@ -701,8 +705,7 @@ final class CompressDialog: NSWindowController, NSTextFieldDelegate {
         sfxBox.isEnabled = f.supportsSFX
         volumeField.isEnabled = f.supportsVolumes
         switch f {
-        case .rar5: hintLabel.stringValue = L("En iyi sıkıştırma ve kurtarma kaydı; WinRAR 5+ ile açılır.")
-        case .rar4: hintLabel.stringValue = L("Eski WinRAR sürümleriyle uyumlu.")
+        case .rar5: hintLabel.stringValue = RarTools.available ? L("En iyi sıkıştırma ve kurtarma kaydı; WinRAR 5+ ile açılır.") : L("RARLAB'ın RAR aracını gerektirir; Oluştur'a basınca indirme adımları gösterilir.")
         case .sevenZip: hintLabel.stringValue = L("Ücretsiz, yüksek sıkıştırma; AES-256 şifre ve ad şifreleme destekler.")
         case .zip: hintLabel.stringValue = L("En yaygın biçim; şifre AES-256 ile uygulanır (eski açıcılar desteklemeyebilir).")
         case .tar: hintLabel.stringValue = L("Sıkıştırma yapmaz, yalnızca paketler.")
@@ -723,6 +726,7 @@ final class CompressDialog: NSWindowController, NSTextFieldDelegate {
         guard !path.isEmpty else { NSSound.beep(); return }
         let f = selectedFormat
         if ArchiveFormat.detect(fromPath: path) != f { path = f.replacingExtension(in: path) }
+        if f.isRar, !RarTools.ensureAvailable() { return }
         if f.supportsPassword, pwField.stringValue != pw2Field.stringValue {
             Dialogs.error(L("Şifreler eşleşmiyor"), L("Her iki şifre alanına aynı şifreyi girin."))
             return

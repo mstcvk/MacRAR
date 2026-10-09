@@ -1,3 +1,4 @@
+#if !APPSTORE
 import AppKit
 
 /// GitHub Releases üzerinden yeni sürüm denetimi (anonim API, kimlik bilgisi yok).
@@ -88,3 +89,5 @@ enum UpdateChecker {
         }
     }
 }
+
+#endif

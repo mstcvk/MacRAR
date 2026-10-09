@@ -81,9 +81,25 @@ The whole app is about 2,000 lines of Swift, needs no Xcode project (Command Lin
 
 `.rar` goes through `unrar`/`rar`; everything else goes through `7zz`. Compressed tar archives (`tar.gz`, `tar.xz`, …) are handled with a two-stage pipeline, outer decompressor piped into the tar reader, so their contents are listed directly.
 
+## Editions
+
+| | Easy Mac Archiver (Mac App Store) | MacRAR (GitHub) |
+|---|---|---|
+| Price | $0.99 | free |
+| Open / extract RAR, ZIP, 7z, TAR, ISO… | ✓ | ✓ |
+| Create ZIP, 7z, TAR(.gz/.xz/.bz2) | ✓ | ✓ |
+| Create / modify RAR | — (proprietary format) | ✓ with your own copy of RARLAB's RAR for macOS |
+| Finder right-click menu | ✓ (app services) | ✓ (Quick Actions) |
+| Sandboxed | ✓ (asks once for folder access) | — |
+| Automatic updates | App Store | daily GitHub check |
+
+[Privacy policy](PRIVACY.md) · [Support](SUPPORT.md)
+
 ## Download
 
 Ready-made, Developer ID-signed and Apple-notarized builds are on the [Releases page](https://github.com/mstcvk/MacRAR/releases/latest): open the DMG, drag MacRAR into Applications, launch it once and choose *MacRAR → (Re)install Finder Quick Actions* to get the right-click menu. No Gatekeeper warnings.
+
+Since 1.4 the app bundles only the 7-Zip engine (universal: Apple Silicon and Intel). RARLAB's `rar`/`unrar` are no longer included because their licence does not allow redistributing `rar`. RAR archives are opened with 7-Zip; to create RAR archives, MacRAR walks you through downloading "RAR for macOS" from rarlab.com and pointing the app at it.
 
 ## Requirements
 

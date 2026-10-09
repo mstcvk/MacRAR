@@ -1,3 +1,4 @@
+#if !APPSTORE
 import Foundation
 
 /// Finder sağ tık menüsündeki "Hızlı Eylemler" için ~/Library/Services altına .workflow paketleri üretir.
@@ -26,7 +27,7 @@ enum QuickActions {
             // Hızlı Eylemler alt menüsü
             Action(name: L("MacRAR • Şuraya Çıkart…"), flag: "--extract-to", topLevel: false, fileTypes: archiveTypes),
             Action(name: L("MacRAR • Test Et"), flag: "--test", topLevel: false, fileTypes: archiveTypes),
-            Action(name: L("MacRAR • Sıkıştır (RAR)"), flag: "--compress", topLevel: false, fileTypes: anyType),
+            Action(name: L("MacRAR • Hızlı Sıkıştır"), flag: "--compress", topLevel: false, fileTypes: anyType),
         ]
     }
 
@@ -388,3 +389,5 @@ enum QuickActions {
         """
     }
 }
+
+#endif

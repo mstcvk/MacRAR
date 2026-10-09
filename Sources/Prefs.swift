@@ -4,7 +4,12 @@ import AppKit
 enum Prefs {
     private static let d = UserDefaults.standard
     static var defaultFormat: ArchiveFormat {
-        get { ArchiveFormat(rawValue: d.integer(forKey: "DefaultFormat")) ?? .rar5 }
+        get {
+            let fallback: ArchiveFormat = RarTools.available ? .rar5 : .zip
+            guard d.object(forKey: "DefaultFormat") != nil, let f = ArchiveFormat(rawValue: d.integer(forKey: "DefaultFormat")),
+                  ArchiveFormat.creatable.contains(f) else { return fallback }
+            return f
+        }
         set { d.set(newValue.rawValue, forKey: "DefaultFormat") }
     }
     static var defaultLevel: Int {
@@ -41,6 +46,8 @@ final class PreferencesWindowController: NSWindowController {
     private let updatesBox = NSButton(checkboxWithTitle: L("Günde bir kez GitHub'dan güncelleme denetle"), target: nil, action: nil)
     private let languagePopup = NSPopUpButton()
     private let languageNote = NSTextField(labelWithString: L("Dil değişikliği uygulama yeniden açılınca geçerli olur."))
+    private let toolStatus = NSTextField(labelWithString: "")
+    private lazy var toolButton = NSButton(title: "", target: self, action: #selector(toolAction))
 
     private init() {
         let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 520, height: 360),
@@ -55,7 +62,7 @@ final class PreferencesWindowController: NSWindowController {
     private func build() {
         guard let content = window?.contentView else { return }
         func label(_ s: String) -> NSTextField { let l = NSTextField(labelWithString: s); l.alignment = .right; return l }
-        formatPopup.addItems(withTitles: ArchiveFormat.allCases.map { $0.title })
+        formatPopup.addItems(withTitles: ArchiveFormat.creatable.map { $0.title })
         levelPopup.addItems(withTitles: [L("Depola (sıkıştırma yok)"), L("En hızlı"), L("Hızlı"), L("Normal"), L("İyi"), L("En iyi")])
         languagePopup.addItems(withTitles: [L("Sistem dili"), "Türkçe", "English"])
         languageNote.font = .systemFont(ofSize: 10)
@@ -77,7 +84,14 @@ final class PreferencesWindowController: NSWindowController {
             [NSGridCell.emptyContentView, updatesBox],
             [label(L("Dil:")), languagePopup],
             [NSGridCell.emptyContentView, languageNote],
+            [label(AppInfo.isAppStore ? L("Klasörler:") : L("RAR aracı:")), toolStatus],
+            [NSGridCell.emptyContentView, toolButton],
         ])
+        updatesBox.isHidden = AppInfo.isAppStore
+        toolStatus.font = .systemFont(ofSize: 11)
+        toolStatus.textColor = .secondaryLabelColor
+        toolStatus.lineBreakMode = .byTruncatingMiddle
+        toolStatus.widthAnchor.constraint(lessThanOrEqualToConstant: 340).isActive = true
         grid.rowSpacing = 8; grid.columnSpacing = 10
         grid.column(at: 0).xPlacement = .trailing
         grid.translatesAutoresizingMaskIntoConstraints = false
@@ -90,8 +104,37 @@ final class PreferencesWindowController: NSWindowController {
         ])
     }
 
+    private func refreshTool() {
+        if AppInfo.isAppStore {
+            let n = FolderAccess.grantedFolders.count
+            toolStatus.stringValue = n == 0 ? L("Henüz izin verilmiş klasör yok (Downloads her zaman açık).") : LF("%d klasöre izin verildi.", n)
+            toolButton.title = L("Ana Klasöre İzin Ver…")
+        } else if let v = RarTools.version {
+            toolStatus.stringValue = LF("Kurulu: %@", v)
+            toolButton.title = L("RAR Aracını Kaldır")
+        } else {
+            toolStatus.stringValue = L("Kurulu değil (RAR oluşturmak için gerekir)")
+            toolButton.title = L("RAR Aracını Kur…")
+        }
+    }
+
+    @objc private func toolAction() {
+        if AppInfo.isAppStore {
+            FolderAccess.grantHome()
+        } else {
+            #if !APPSTORE
+            if RarTools.available { RarTools.uninstall() } else { RarTools.ensureAvailable() }
+            #endif
+        }
+        refreshTool()
+        formatPopup.removeAllItems()
+        formatPopup.addItems(withTitles: ArchiveFormat.creatable.map { $0.title })
+        formatPopup.selectItem(at: ArchiveFormat.creatable.firstIndex(of: Prefs.defaultFormat) ?? 0)
+    }
+
     private func load() {
-        formatPopup.selectItem(at: Prefs.defaultFormat.rawValue)
+        refreshTool()
+        formatPopup.selectItem(at: ArchiveFormat.creatable.firstIndex(of: Prefs.defaultFormat) ?? 0)
         levelPopup.selectItem(at: Prefs.defaultLevel)
         solidBox.state = Prefs.solid ? .on : .off
         rrBox.state = Prefs.recoveryRecord ? .on : .off
@@ -102,7 +145,9 @@ final class PreferencesWindowController: NSWindowController {
     }
 
     @objc private func changed() {
-        Prefs.defaultFormat = ArchiveFormat(rawValue: formatPopup.indexOfSelectedItem) ?? .rar5
+        let list = ArchiveFormat.creatable
+        let fi = formatPopup.indexOfSelectedItem
+        Prefs.defaultFormat = fi >= 0 && fi < list.count ? list[fi] : .zip
         Prefs.defaultLevel = levelPopup.indexOfSelectedItem
         Prefs.solid = solidBox.state == .on
         Prefs.recoveryRecord = rrBox.state == .on

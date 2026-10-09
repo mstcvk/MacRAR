@@ -160,7 +160,7 @@ final class ArchiveWindowController: NSWindowController, NSWindowDelegate, NSMen
         let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 900, height: 560),
                          styleMask: [.titled, .closable, .miniaturizable, .resizable],
                          backing: .buffered, defer: false)
-        w.title = "MacRAR"
+        w.title = AppInfo.name
         w.minSize = NSSize(width: 560, height: 300)
         w.isReleasedWhenClosed = false
         w.setFrameAutosaveName("ArchiveWindow")
@@ -548,7 +548,7 @@ final class ArchiveWindowController: NSWindowController, NSWindowDelegate, NSMen
 
     private func openNode(_ n: Node) {
         guard let info else { return }
-        let tmp = TempDirs.make("MacRAR-open")
+        let tmp = TempDirs.make("open")
         Ops.extract(info: info, names: [n.path], dest: tmp, password: password, host: window, quiet: true) { [weak self] ok, pw in
             self?.password = pw ?? self?.password
             guard ok else { return }
@@ -575,7 +575,7 @@ final class ArchiveWindowController: NSWindowController, NSWindowDelegate, NSMen
         guard let info else { return }
         let files = selectedNodes().filter { !$0.isDir }
         guard !files.isEmpty else { return }
-        let tmp = TempDirs.make("MacRAR-ql")
+        let tmp = TempDirs.make("ql")
         Ops.extract(info: info, names: files.map { $0.path }, dest: tmp, password: password, host: window, quiet: true) { [weak self] ok, pw in
             guard let self else { return }
             self.password = pw ?? self.password
@@ -871,7 +871,7 @@ extension ArchiveWindowController: NSFilePromiseProviderDelegate {
             }
 
             // İlk öğe: sürüklenen tüm öğeleri tek seferde geçici klasöre çıkart
-            let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("MacRAR-drag-\(UUID().uuidString)").path
+            let tmp = TempDirs.make("drag")
             dragTempDir = tmp
             dragExtracted = true
             Ops.extract(info: info, names: Self.paths(for: nodes), dest: tmp, password: password, host: window, quiet: true) { ok, pw in

@@ -52,6 +52,10 @@ enum Ops {
 
     /// Arşivi listeler; gerekirse şifre sorar. İptalde nil döner.
     static func listInteractive(archive: String, password: inout String?) -> ArchiveInfo? {
+        let folder = (archive as NSString).deletingLastPathComponent
+        if Formats.isMultiVolume(archive) || !FileManager.default.isReadableFile(atPath: archive) {
+            guard FolderAccess.ensure(folder, write: false) else { return nil }
+        }
         var wrong = false
         while true {
             switch RarRunner.list(archive, password: password) {
@@ -87,31 +91,22 @@ enum Ops {
     enum OverwriteArg { case overwrite, rename, skip }
 
     static func extractStages(info: ArchiveInfo, names: [String]?, dest: String, password: String?, mode: OverwriteArg) -> [Stage] {
-        let destSlash = dest.hasSuffix("/") ? dest : dest + "/"
-        switch info.kind {
-        case .rar:
-            let ow = mode == .overwrite ? "-o+" : (mode == .rename ? "-or" : "-o-")
-            var args = ["x", "-y", ow, RarRunner.passwordArg(password), "--", info.path]
-            if let names { args += names }
-            args.append(destSlash)
-            return [(.unrar, args)]
-        case .other:
-            let ow = mode == .overwrite ? "-aoa" : (mode == .rename ? "-aou" : "-aos")
-            if info.tarCompressed {
-                var inner = ["x", "-si", "-ttar", "-y", "-bb1", ow, "-o" + dest]
-                if let names { inner += ["--"] + names }
-                return [(.sevenZip, ["x", "-so", RarRunner.passwordArg7z(password), "--", info.path]),
-                        (.sevenZip, inner)]
-            }
-            var args = ["x", "-y", "-bsp1", "-bb1", ow, RarRunner.passwordArg7z(password), "-o" + dest, "--", info.path]
-            if let names { args += names }
-            return [(.sevenZip, args)]
+        let ow = mode == .overwrite ? "-aoa" : (mode == .rename ? "-aou" : "-aos")
+        if info.tarCompressed {
+            var inner = ["x", "-si", "-ttar", "-y", "-bb1", ow, "-o" + dest]
+            if let names { inner += ["--"] + names }
+            return [(.sevenZip, ["x", "-so", RarRunner.passwordArg7z(password), "--", info.path]),
+                    (.sevenZip, inner)]
         }
+        var args = ["x", "-y", "-bsp1", "-bb1", ow, RarRunner.passwordArg7z(password), "-o" + dest, "--", info.path]
+        if let names { args += names }
+        return [(.sevenZip, args)]
     }
 
     /// names: nil ise tüm arşiv. completion(success, kullanılan şifre)
     static func extract(info: ArchiveInfo, names: [String]?, dest: String, password: String?,
                         host: NSWindow?, quiet: Bool = false, completion: @escaping (Bool, String?) -> Void) {
+        guard FolderAccess.ensure(FolderAccess.existingAncestor(of: dest), write: true) else { completion(false, password); return }
         var pw = password
         if needsPassword(info: info, names: names), pw == nil {
             guard let p = Dialogs.askPassword(archiveName: name(info.path)) else { completion(false, nil); return }
@@ -177,16 +172,11 @@ enum Ops {
 
     private static func runTest(info: ArchiveInfo, password: String?, host: NSWindow?, completion: @escaping (Bool, String?) -> Void) {
         let stages: [Stage]
-        switch info.kind {
-        case .rar:
-            stages = [(.unrar, ["t", "-y", RarRunner.passwordArg(password), "--", info.path])]
-        case .other:
-            if info.tarCompressed {
-                stages = [(.sevenZip, ["x", "-so", RarRunner.passwordArg7z(password), "--", info.path]),
-                          (.sevenZip, ["t", "-si", "-ttar", "-bb1"])]
-            } else {
-                stages = [(.sevenZip, ["t", "-bsp1", "-bb1", RarRunner.passwordArg7z(password), "--", info.path])]
-            }
+        if info.tarCompressed {
+            stages = [(.sevenZip, ["x", "-so", RarRunner.passwordArg7z(password), "--", info.path]),
+                      (.sevenZip, ["t", "-si", "-ttar", "-bb1"])]
+        } else {
+            stages = [(.sevenZip, ["t", "-bsp1", "-bb1", RarRunner.passwordArg7z(password), "--", info.path])]
         }
         runJob(title: LF("Test ediliyor: %@", name(info.path)), stages: stages, host: host, totalFiles: info.entries.count) { r in
             if r.cancelled { completion(false, password); return }
@@ -208,6 +198,8 @@ enum Ops {
 
     static func compress(items: [String], options: CompressOptions, host: NSWindow?, completion: @escaping (Bool, String) -> Void) {
         var o = options
+        if o.format.isRar, !RarTools.ensureAvailable() { completion(false, o.archivePath); return }
+        guard FolderAccess.ensure((o.archivePath as NSString).deletingLastPathComponent, write: true) else { completion(false, o.archivePath); return }
         if FileManager.default.fileExists(atPath: o.archivePath) {
             let alert = NSAlert()
             alert.messageText = LF("\"%@\" zaten var", name(o.archivePath))
@@ -289,6 +281,8 @@ enum Ops {
             Dialogs.error(L("Desteklenmiyor"), L("tar.gz / tar.xz türü arşivlere dosya eklenemez. Yeni bir arşiv oluşturun."))
             completion(false, password); return
         }
+        if info.kind == .rar, !RarTools.ensureAvailable() { completion(false, password); return }
+        guard FolderAccess.ensure((info.path as NSString).deletingLastPathComponent, write: true) else { completion(false, password); return }
         var pw = password
         if info.hasEncryptedFiles, pw == nil {
             guard let p = Dialogs.askPassword(archiveName: name(info.path)) else { completion(false, nil); return }
@@ -320,6 +314,8 @@ enum Ops {
             Dialogs.error(L("Desteklenmiyor"), L("tar.gz / tar.xz türü arşivlerden dosya silinemez."))
             completion(false, password); return
         }
+        if info.kind == .rar, !RarTools.ensureAvailable() { completion(false, password); return }
+        guard FolderAccess.ensure((info.path as NSString).deletingLastPathComponent, write: true) else { completion(false, password); return }
         var pw = password
         if info.headersEncrypted, pw == nil {
             guard let p = Dialogs.askPassword(archiveName: name(info.path)) else { completion(false, nil); return }
