@@ -66,7 +66,7 @@ enum Ops {
                 if r.notArchive {
                     Dialogs.error(L("Arşiv açılamadı"), LF("\"%@\" desteklenen bir arşiv değil.", name(archive)))
                 } else {
-                    Dialogs.error(L("Arşiv açılamadı"), r.errorSummary)
+                    Dialogs.error(L("Arşiv açılamadı"), r.errorSummary, details: r.output)
                 }
                 return nil
             }
@@ -84,18 +84,19 @@ enum Ops {
         }
     }
 
-    enum OverwriteArg { case overwrite, rename }
+    enum OverwriteArg { case overwrite, rename, skip }
 
     static func extractStages(info: ArchiveInfo, names: [String]?, dest: String, password: String?, mode: OverwriteArg) -> [Stage] {
         let destSlash = dest.hasSuffix("/") ? dest : dest + "/"
         switch info.kind {
         case .rar:
-            var args = ["x", "-y", mode == .overwrite ? "-o+" : "-or", RarRunner.passwordArg(password), "--", info.path]
+            let ow = mode == .overwrite ? "-o+" : (mode == .rename ? "-or" : "-o-")
+            var args = ["x", "-y", ow, RarRunner.passwordArg(password), "--", info.path]
             if let names { args += names }
             args.append(destSlash)
             return [(.unrar, args)]
         case .other:
-            let ow = mode == .overwrite ? "-aoa" : "-aou"
+            let ow = mode == .overwrite ? "-aoa" : (mode == .rename ? "-aou" : "-aos")
             if info.tarCompressed {
                 var inner = ["x", "-si", "-ttar", "-y", "-bb1", ow, "-o" + dest]
                 if let names { inner += ["--"] + names }
@@ -133,6 +134,7 @@ enum Ops {
             switch Dialogs.askOverwrite(existing: existing, dest: dest) {
             case .overwrite: mode = .overwrite
             case .rename: mode = .rename
+            case .skip: mode = .skip
             case .cancel: completion(false, pw); return
             }
         }
@@ -151,7 +153,7 @@ enum Ops {
                 return
             }
             if !r.ok {
-                Dialogs.error(L("Çıkartma başarısız"), r.errorSummary)
+                Dialogs.error(L("Çıkartma başarısız"), r.errorSummary, details: r.output)
                 completion(false, password)
                 return
             }
@@ -196,7 +198,7 @@ enum Ops {
             if r.ok {
                 Dialogs.info(L("Test başarılı"), LF("\"%@\" arşivinde hata bulunmadı.", name(info.path)))
             } else {
-                Dialogs.error(L("Test başarısız"), r.errorSummary)
+                Dialogs.error(L("Test başarısız"), r.errorSummary, details: r.output)
             }
             completion(r.ok, password)
         }
@@ -272,7 +274,7 @@ enum Ops {
             }
             if !r.ok {
                 steps[(index + 1)...].forEach { $0.cleanup?() }
-                Dialogs.error(L("Sıkıştırma başarısız"), r.errorSummary)
+                Dialogs.error(L("Sıkıştırma başarısız"), r.errorSummary, details: r.output)
                 completion(false, archive)
                 return
             }
@@ -308,7 +310,7 @@ enum Ops {
                 add(info: info, items: items, password: p, host: host, completion: completion)
                 return
             }
-            if !r.ok { Dialogs.error(L("Ekleme başarısız"), r.errorSummary) }
+            if !r.ok { Dialogs.error(L("Ekleme başarısız"), r.errorSummary, details: r.output) }
             completion(r.ok, pw)
         }
     }
@@ -337,7 +339,7 @@ enum Ops {
                 delete(info: info, names: names, password: p, host: host, completion: completion)
                 return
             }
-            if !r.ok { Dialogs.error(L("Silme başarısız"), r.errorSummary) }
+            if !r.ok { Dialogs.error(L("Silme başarısız"), r.errorSummary, details: r.output) }
             completion(r.ok, pw)
         }
     }
@@ -359,5 +361,21 @@ enum Ops {
 
     static func revealInFinder(_ path: String) {
         NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
+    }
+
+    /// Çıkartma sonrası: çıkan üst düzey öğeleri Finder'da seçer (yoksa hedef klasörü)
+    static func revealExtracted(info: ArchiveInfo, names: [String]?, dest: String) {
+        guard Prefs.revealAfterExtract else { return }
+        let tops: [String]
+        if let names {
+            var seen = Set<String>()
+            tops = names.compactMap { n in
+                let t = n.split(separator: "/", maxSplits: 1).first.map(String.init) ?? n
+                return seen.insert(t).inserted ? t : nil
+            }
+        } else { tops = info.topLevelNames }
+        let urls = tops.map { URL(fileURLWithPath: (dest as NSString).appendingPathComponent($0)) }
+            .filter { FileManager.default.fileExists(atPath: $0.path) }
+        if urls.isEmpty { revealInFinder(dest) } else { NSWorkspace.shared.activateFileViewerSelecting(Array(urls.prefix(50))) }
     }
 }

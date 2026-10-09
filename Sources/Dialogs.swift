@@ -16,16 +16,47 @@ enum Dialogs {
         alert.icon = NSImage(systemSymbolName: "lock.fill", accessibilityDescription: nil)
         alert.addButton(withTitle: L("Tamam"))
         alert.addButton(withTitle: L("İptal"))
-        let field = NSSecureTextField(frame: NSRect(x: 0, y: 0, width: 300, height: 24))
-        field.placeholderString = L("Şifre")
-        alert.accessoryView = field
-        alert.window.initialFirstResponder = field
+        let secure = NSSecureTextField(frame: NSRect(x: 0, y: 0, width: 300, height: 24))
+        secure.placeholderString = L("Şifre")
+        let plain = NSTextField(frame: NSRect(x: 0, y: 0, width: 300, height: 24))
+        plain.placeholderString = L("Şifre")
+        plain.isHidden = true
+        let box = PasswordBox(secure: secure, plain: plain)
+        let container = NSView(frame: NSRect(x: 0, y: 0, width: 300, height: 52))
+        secure.frame = NSRect(x: 0, y: 28, width: 300, height: 24)
+        plain.frame = secure.frame
+        box.toggle.frame = NSRect(x: 0, y: 2, width: 200, height: 20)
+        container.addSubview(secure); container.addSubview(plain); container.addSubview(box.toggle)
+        alert.accessoryView = container
+        alert.window.initialFirstResponder = secure
         let resp = alert.runModal()
         guard resp == .alertFirstButtonReturn else { return nil }
-        return field.stringValue
+        return box.value
     }
 
-    enum OverwriteMode { case overwrite, rename, cancel }
+    /// Şifre alanı + "Şifreyi göster" anahtarı
+    final class PasswordBox: NSObject {
+        let secure: NSSecureTextField
+        let plain: NSTextField
+        let toggle: NSButton
+        init(secure: NSSecureTextField, plain: NSTextField) {
+            self.secure = secure; self.plain = plain
+            toggle = NSButton(checkboxWithTitle: L("Şifreyi göster"), target: nil, action: nil)
+            super.init()
+            toggle.target = self; toggle.action = #selector(flip)
+            toggle.font = .systemFont(ofSize: 11)
+        }
+        var value: String { plain.isHidden ? secure.stringValue : plain.stringValue }
+        @objc private func flip() {
+            if toggle.state == .on {
+                plain.stringValue = secure.stringValue; plain.isHidden = false; secure.isHidden = true; plain.window?.makeFirstResponder(plain)
+            } else {
+                secure.stringValue = plain.stringValue; secure.isHidden = false; plain.isHidden = true; secure.window?.makeFirstResponder(secure)
+            }
+        }
+    }
+
+    enum OverwriteMode { case overwrite, rename, skip, cancel }
 
     static func askOverwrite(existing: [String], dest: String) -> OverwriteMode {
         activate()
@@ -36,21 +67,42 @@ enum Dialogs {
         alert.alertStyle = .warning
         alert.addButton(withTitle: L("Üzerine Yaz"))
         alert.addButton(withTitle: L("Yeniden Adlandır"))
+        alert.addButton(withTitle: L("Atla"))
         alert.addButton(withTitle: L("İptal"))
         switch alert.runModal() {
         case .alertFirstButtonReturn: return .overwrite
         case .alertSecondButtonReturn: return .rename
+        case .alertThirdButtonReturn: return .skip
         default: return .cancel
         }
     }
 
-    static func error(_ title: String, _ detail: String) {
+    static func error(_ title: String, _ detail: String, details: String? = nil) {
         activate()
         let alert = NSAlert()
         alert.messageText = title
         alert.informativeText = detail.isEmpty ? L("Bilinmeyen hata.") : detail
         alert.alertStyle = .critical
         alert.addButton(withTitle: L("Tamam"))
+        let full = (details ?? "").replacingOccurrences(of: "\u{8}", with: "").trimmingCharacters(in: .whitespacesAndNewlines)
+        if !full.isEmpty, full != detail {
+            alert.addButton(withTitle: L("Ayrıntıları Kopyala"))
+            let scroll = NSScrollView(frame: NSRect(x: 0, y: 0, width: 420, height: 140))
+            let tv = NSTextView(frame: scroll.bounds)
+            tv.isEditable = false
+            tv.font = .monospacedSystemFont(ofSize: 10, weight: .regular)
+            tv.string = full
+            tv.autoresizingMask = [.width]
+            scroll.documentView = tv
+            scroll.hasVerticalScroller = true
+            scroll.borderType = .bezelBorder
+            alert.accessoryView = scroll
+            if alert.runModal() == .alertSecondButtonReturn {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(full, forType: .string)
+            }
+            return
+        }
         alert.runModal()
     }
 
@@ -100,10 +152,12 @@ enum Dialogs {
         panel.canChooseFiles = true
         panel.allowsMultipleSelection = true
         if archivesOnly {
-            var types: [UTType] = []
+            var types: [UTType] = [.archive]
             if let t = UTType("com.rarlab.rar-archive") { types.append(t) }
-            if let t = UTType(filenameExtension: "rar") { types.append(t) }
-            if !types.isEmpty { panel.allowedContentTypes = types }
+            if let t = UTType("com.mesut.macrar.archive") { types.append(t) }
+            for ext in Formats.openable { if let t = UTType(filenameExtension: ext) { types.append(t) } }
+            panel.allowedContentTypes = types
+            panel.allowsOtherFileTypes = true
         }
         return panel.runModal() == .OK ? panel.urls.map { $0.path } : []
     }
@@ -475,6 +529,16 @@ struct CompressOptions {
         }
     }
 
+    /// Ayarlardaki varsayılanlarla seçenek nesnesi
+    static func withDefaults(for items: [String]) -> CompressOptions {
+        var o = CompressOptions(archivePath: defaultArchivePath(for: items, format: Prefs.defaultFormat))
+        o.format = Prefs.defaultFormat
+        o.level = Prefs.defaultLevel
+        o.solid = Prefs.solid && o.format.supportsSolid
+        o.recoveryRecord = Prefs.recoveryRecord && o.format.supportsRecovery
+        return o
+    }
+
     static func defaultArchivePath(for items: [String], format: ArchiveFormat = .rar5) -> String {
         guard let first = items.first else { return L("arşiv") + "." + format.ext }
         let parent = (first as NSString).deletingLastPathComponent
@@ -490,7 +554,7 @@ struct CompressOptions {
     }
 }
 
-final class CompressDialog: NSWindowController {
+final class CompressDialog: NSWindowController, NSTextFieldDelegate {
     private let pathField = NSTextField()
     private let formatPopup = NSPopUpButton()
     private let levelPopup = NSPopUpButton()
@@ -538,6 +602,7 @@ final class CompressDialog: NSWindowController {
         levelPopup.selectItem(at: options.level)
         pwField.placeholderString = L("Boş bırakılırsa şifrelenmez")
         pw2Field.placeholderString = L("Şifreyi tekrar girin")
+        pwField.delegate = self
         volumeField.placeholderString = L("örn. 100M, 1G, 700M  (boş = bölme)")
         for f in [volumeField, pwField, pw2Field] as [NSTextField] {
             f.usesSingleLineMode = true
@@ -623,12 +688,14 @@ final class CompressDialog: NSWindowController {
         applyFormatRules()
     }
 
+    func controlTextDidChange(_ obj: Notification) { applyFormatRules() }
+
     private func applyFormatRules() {
         let f = selectedFormat
         levelPopup.isEnabled = f.supportsLevel
         pwField.isEnabled = f.supportsPassword
         pw2Field.isEnabled = f.supportsPassword
-        encryptNamesBox.isEnabled = f.supportsEncryptNames
+        encryptNamesBox.isEnabled = f.supportsEncryptNames && !pwField.stringValue.isEmpty
         solidBox.isEnabled = f.supportsSolid
         rrBox.isEnabled = f.supportsRecovery
         sfxBox.isEnabled = f.supportsSFX
@@ -672,6 +739,11 @@ final class CompressDialog: NSWindowController {
         o.deleteAfter = deleteBox.state == .on
         let v = volumeField.stringValue.trimmingCharacters(in: .whitespaces)
         o.volumeSize = (f.supportsVolumes && !v.isEmpty) ? v : nil
+        // Son kullanılan ayarları hatırla
+        Prefs.defaultFormat = o.format
+        Prefs.defaultLevel = o.level
+        Prefs.solid = o.solid
+        Prefs.recoveryRecord = o.recoveryRecord
         result = o
         NSApp.stopModal(withCode: .OK)
     }

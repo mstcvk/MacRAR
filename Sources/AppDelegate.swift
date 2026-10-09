@@ -12,7 +12,29 @@ enum Command {
     case installQuickActions
 }
 
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
+
+    // MARK: Son kullanılanlar menüsü
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        menu.removeAllItems()
+        let urls = NSDocumentController.shared.recentDocumentURLs.filter { FileManager.default.fileExists(atPath: $0.path) }
+        for u in urls.prefix(15) {
+            let item = menu.addItem(withTitle: u.lastPathComponent, action: #selector(openRecent(_:)), keyEquivalent: "")
+            item.representedObject = u.path
+            item.image = NSWorkspace.shared.icon(forFile: u.path); item.image?.size = NSSize(width: 16, height: 16)
+            item.toolTip = u.path
+            item.target = self
+        }
+        if urls.isEmpty {
+            let none = menu.addItem(withTitle: "—", action: nil, keyEquivalent: ""); none.isEnabled = false
+        } else {
+            menu.addItem(.separator())
+            let clear = menu.addItem(withTitle: L("Listeyi Temizle"), action: #selector(clearRecent(_:)), keyEquivalent: "")
+            clear.target = self
+        }
+    }
+    @objc func openRecent(_ sender: NSMenuItem) { if let p = sender.representedObject as? String { openArchive(p, reuse: nil) } }
+    @objc func clearRecent(_ sender: Any?) { NSDocumentController.shared.clearRecentDocuments(nil) }
     static var shared: AppDelegate!
 
     var windows: [ArchiveWindowController] = []
@@ -31,6 +53,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         launched = true
         scheduleDebugSnapshot()
         if ProcessInfo.processInfo.environment["MACRAR_DEBUG_ABOUT"] != nil { showAbout(nil) }
+        if ProcessInfo.processInfo.environment["MACRAR_DEBUG_PREFS"] != nil { showPreferences(nil) }
         if let cmd = pendingCommand {
             NSApp.activate(ignoringOtherApps: true)
             runCommand(cmd)
@@ -45,7 +68,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         NSApp.activate(ignoringOtherApps: true)
         // Yalnızca pencereli kullanımda, günde bir kez
-        DispatchQueue.main.asyncAfter(deadline: .now() + 3) { UpdateChecker.checkAutomatically() }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3) { if Prefs.checkUpdates { UpdateChecker.checkAutomatically() } }
     }
 
     @objc func checkForUpdates(_ sender: Any?) { UpdateChecker.check(manual: true) }
@@ -82,6 +105,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { !headless }
+
+    func applicationWillTerminate(_ notification: Notification) { TempDirs.cleanupAll() }
+
+    @objc func showPreferences(_ sender: Any?) { PreferencesWindowController.shared.show() }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         if !flag, !headless { showEmptyWindow() }
@@ -144,9 +171,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     /// Seçenek penceresi gösterip sıkıştırır. completion(oluşan arşiv yolu / nil)
     func compressWithDialog(items: [String], host: NSWindow?, completion: @escaping (String?) -> Void) {
-        let opts = CompressOptions(archivePath: CompressOptions.defaultArchivePath(for: items))
+        let opts = CompressOptions.withDefaults(for: items)
         guard let chosen = CompressDialog(options: opts, itemCount: items.count).run() else { completion(nil); return }
         Ops.compress(items: items, options: chosen, host: host) { ok, path in
+            if ok, Prefs.revealAfterCompress { Ops.revealInFinder(path) }
             completion(ok ? path : nil)
         }
     }
@@ -178,7 +206,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         case .compress(let items):
             let existing = items.filter { FileManager.default.fileExists(atPath: $0) }
             guard !existing.isEmpty else { NSApp.terminate(nil); return }
-            var opts = CompressOptions(archivePath: CompressOptions.defaultArchivePath(for: existing))
+            var opts = CompressOptions.withDefaults(for: existing)
             // Hata ayıklama: MACRAR_DEBUG_FORMAT=zip|7z|tar.gz… ve MACRAR_DEBUG_PASSWORD ile biçim/şifre seçimi
             if let f = ProcessInfo.processInfo.environment["MACRAR_DEBUG_FORMAT"],
                let fmt = ArchiveFormat.allCases.first(where: { $0.ext == f }) {
@@ -187,7 +215,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 opts.password = ProcessInfo.processInfo.environment["MACRAR_DEBUG_PASSWORD"]
                 opts.encryptNames = ProcessInfo.processInfo.environment["MACRAR_DEBUG_ENCNAMES"] != nil
             }
-            Ops.compress(items: existing, options: opts, host: nil) { _, _ in NSApp.terminate(nil) }
+            Ops.compress(items: existing, options: opts, host: nil) { ok, path in
+                if ok, Prefs.revealAfterCompress { Ops.revealInFinder(path) }
+                NSApp.terminate(nil)
+            }
         case .compressDialog(let items):
             let existing = items.filter { FileManager.default.fileExists(atPath: $0) }
             guard !existing.isEmpty else { NSApp.terminate(nil); return }
@@ -347,6 +378,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         app.addItem(withTitle: L("MacRAR Hakkında"), action: #selector(showAbout(_:)), keyEquivalent: "")
         app.addItem(withTitle: L("Güncellemeleri Denetle…"), action: #selector(checkForUpdates(_:)), keyEquivalent: "")
         app.addItem(.separator())
+        app.addItem(withTitle: L("Ayarlar…"), action: #selector(showPreferences(_:)), keyEquivalent: ",")
+        app.addItem(.separator())
         app.addItem(withTitle: L("RAR Dosyaları İçin Varsayılan Uygulama Yap"), action: #selector(makeDefault(_:)), keyEquivalent: "")
         app.addItem(withTitle: L("Tüm Arşivler (ZIP, 7z, TAR…) İçin Varsayılan Yap"), action: #selector(makeDefaultForAll(_:)), keyEquivalent: "")
         app.addItem(withTitle: L("Finder Hızlı Eylemlerini (Yeniden) Yükle"), action: #selector(installQuickActionsAction(_:)), keyEquivalent: "")
@@ -363,6 +396,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let file = NSMenu(title: L("Dosya"))
         file.addItem(withTitle: L("Arşiv Aç…"), action: #selector(ArchiveWindowController.openArchive(_:)), keyEquivalent: "o")
         file.addItem(withTitle: L("Yeni Arşiv Oluştur…"), action: #selector(ArchiveWindowController.newArchive(_:)), keyEquivalent: "n")
+        let recentItem = file.addItem(withTitle: L("Son Kullanılanlar"), action: nil, keyEquivalent: "")
+        let recent = NSMenu(title: L("Son Kullanılanlar"))
+        recent.delegate = self
+        recentItem.submenu = recent
         file.addItem(.separator())
         file.addItem(withTitle: L("Buraya Çıkart"), action: #selector(ArchiveWindowController.extractHere(_:)), keyEquivalent: "e")
         let ef = file.addItem(withTitle: L("Klasöre Çıkart"), action: #selector(ArchiveWindowController.extractToFolder(_:)), keyEquivalent: "e")
@@ -393,6 +430,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         edit.addItem(withTitle: L("Yapıştır"), action: #selector(NSText.paste(_:)), keyEquivalent: "v")
         edit.addItem(withTitle: L("Tümünü Seç"), action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
         editItem.submenu = edit
+
+        let viewItem = NSMenuItem(); main.addItem(viewItem)
+        let view = NSMenu(title: L("Görünüm"))
+        view.addItem(withTitle: L("Göz At"), action: #selector(ArchiveWindowController.quickLook(_:)), keyEquivalent: " ").keyEquivalentModifierMask = []
+        view.addItem(.separator())
+        let ea = view.addItem(withTitle: L("Tümünü Genişlet"), action: #selector(ArchiveWindowController.expandAll(_:)), keyEquivalent: String(UnicodeScalar(NSRightArrowFunctionKey)!))
+        ea.keyEquivalentModifierMask = [.command, .option]
+        let ca = view.addItem(withTitle: L("Tümünü Daralt"), action: #selector(ArchiveWindowController.collapseAll(_:)), keyEquivalent: String(UnicodeScalar(NSLeftArrowFunctionKey)!))
+        ca.keyEquivalentModifierMask = [.command, .option]
+        view.addItem(.separator())
+        view.addItem(withTitle: L("Yenile"), action: #selector(ArchiveWindowController.refresh(_:)), keyEquivalent: "r")
+        let rv = view.addItem(withTitle: L("Arşivi Finder'da Göster"), action: #selector(ArchiveWindowController.revealArchive(_:)), keyEquivalent: "r")
+        rv.keyEquivalentModifierMask = [.command, .shift]
+        viewItem.submenu = view
 
         let winItem = NSMenuItem(); main.addItem(winItem)
         let win = NSMenu(title: L("Pencere"))

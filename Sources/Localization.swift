@@ -6,6 +6,7 @@ import Foundation
 enum L10n {
     static let isTurkish: Bool = {
         if let o = ProcessInfo.processInfo.environment["MACRAR_LANG"] { return o.lowercased().hasPrefix("tr") }
+        if let o = UserDefaults.standard.string(forKey: "Language"), !o.isEmpty { return o.hasPrefix("tr") }
         if let pref = Bundle.main.preferredLocalizations.first { return pref.lowercased().hasPrefix("tr") }
         if let first = Locale.preferredLanguages.first { return first.lowercased().hasPrefix("tr") }
         return false
@@ -79,6 +80,15 @@ enum L10n {
         "Finder hızlı eylemleri yüklendi": "Finder Quick Actions installed",
         "%d hızlı eylem kuruldu. Finder'da bir dosyaya sağ tıklayıp \"Hızlı Eylemler\" menüsünden kullanabilirsiniz.": "%d Quick Action(s) installed. Right-click a file in Finder and use the \"Quick Actions\" menu.",
         "Geliştirici: Mesut Çevik\n": "Developer: Mesut Çevik\n",
+        // Ayarlar
+        "Ayarlar": "Settings", "Ayarlar…": "Settings…", "Hızlı sıkıştırma varsayılanları": "Quick compression defaults", "Davranış": "Behaviour",
+        "Çıkartma bitince öğeleri Finder'da göster": "Reveal extracted items in Finder", "Sıkıştırma bitince arşivi Finder'da göster": "Reveal the new archive in Finder",
+        "Günde bir kez GitHub'dan güncelleme denetle": "Check GitHub for updates once a day", "Dil:": "Language:", "Sistem dili": "System language",
+        "Dil değişikliği uygulama yeniden açılınca geçerli olur.": "Language changes take effect after relaunching the app.",
+        // Görünüm / klavye
+        "Görünüm": "View", "Tümünü Genişlet": "Expand All", "Tümünü Daralt": "Collapse All", "Yenile": "Refresh", "Arşivi Finder'da Göster": "Show Archive in Finder",
+        "Göz At": "Quick Look", "Son Kullanılanlar": "Open Recent", "Listeyi Temizle": "Clear Menu", "Arşiv Aç…": "Open Archive…", "Yeni Arşiv…": "New Archive…",
+        "Atla": "Skip", "Şifreyi göster": "Show password", "Ayrıntıları Kopyala": "Copy Details", "Ayrıntılar:": "Details:",
         // Güncelleme
         "Güncellemeleri Denetle…": "Check for Updates…", "Güncelleme denetlenemedi": "Could not check for updates",
         "GitHub'a ulaşılamadı. İnternet bağlantınızı kontrol edin.": "GitHub could not be reached. Check your internet connection.",

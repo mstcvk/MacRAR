@@ -38,7 +38,7 @@ cp "$BUILD/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
 echo "▸ Swift derleniyor"
 swiftc -O -swift-version 5 \
   -target arm64-apple-macos13.0 \
-  -framework AppKit -framework UniformTypeIdentifiers \
+  -framework AppKit -framework UniformTypeIdentifiers -framework Quartz \
   -module-name MacRAR \
   Sources/*.swift \
   -o "$APP/Contents/MacOS/MacRAR"

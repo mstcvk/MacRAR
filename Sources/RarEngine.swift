@@ -511,6 +511,21 @@ final class RarJob {
 
 // MARK: - Yardımcılar
 
+/// Oturum boyunca oluşturulan geçici klasörler; çıkışta temizlenir
+enum TempDirs {
+    private static var created: [String] = []
+    private static let lock = NSLock()
+    static func make(_ prefix: String = "MacRAR") -> String {
+        let p = FileManager.default.temporaryDirectory.appendingPathComponent("\(prefix)-\(UUID().uuidString)").path
+        lock.lock(); created.append(p); lock.unlock()
+        return p
+    }
+    static func cleanupAll() {
+        lock.lock(); let list = created; created = []; lock.unlock()
+        for p in list { try? FileManager.default.removeItem(atPath: p) }
+    }
+}
+
 enum Fmt {
     static let bytes: ByteCountFormatter = {
         let f = ByteCountFormatter()

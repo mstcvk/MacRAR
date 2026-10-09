@@ -34,9 +34,11 @@ The whole app is about 2,000 lines of Swift, needs no Xcode project (Command Lin
 ## Features
 
 **Browsing**
-- Opens an archive as a folder tree: name, lock indicator, size, packed size, ratio, modification date, CRC.
+- Opens an archive as a folder tree: name, lock indicator, size, packed size, ratio, modification date, CRC. Click a header to sort; widths and sort order are remembered.
 - Search field filters the whole archive by path.
-- Double-click a file to extract it to a temporary location and open it with its default app.
+- Double-click or press Return to open a file with its default app; press Space for a Quick Look preview.
+- File → Open Recent, View → Expand All / Collapse All / Refresh / Show Archive in Finder.
+- Settings (⌘,): default format and level for quick compression, Finder reveal behaviour, update check, interface language.
 - Status bar shows file count, total and packed size, format and flags (solid, encrypted headers, volumes).
 
 **Extracting**

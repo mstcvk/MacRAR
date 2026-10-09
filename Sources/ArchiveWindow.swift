@@ -1,5 +1,34 @@
 import AppKit
+import Quartz
 import UniformTypeIdentifiers
+
+// MARK: - Klavye destekli ağaç görünümü
+
+final class ArchiveOutlineView: NSOutlineView {
+    var onReturn: (() -> Void)?
+    var onSpace: (() -> Void)?
+    override func keyDown(with event: NSEvent) {
+        let mods = event.modifierFlags.intersection(.deviceIndependentFlagsMask).subtracting(.numericPad)
+        if mods.isEmpty, let ch = event.charactersIgnoringModifiers?.unicodeScalars.first {
+            if ch == "\r" || ch == "\u{3}" { onReturn?(); return }
+            if ch == " " { onSpace?(); return }
+        }
+        super.keyDown(with: event)
+    }
+}
+
+/// Boş pencere: etiket + düğmeler; üzerine dosya bırakılabilir
+final class EmptyStateView: NSView {
+    var onDrop: (([URL]) -> Void)?
+    override init(frame: NSRect) { super.init(frame: frame); registerForDraggedTypes([.fileURL]) }
+    required init?(coder: NSCoder) { fatalError() }
+    override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation { .copy }
+    override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+        guard let urls = sender.draggingPasteboard.readObjects(forClasses: [NSURL.self]) as? [URL], !urls.isEmpty else { return false }
+        onDrop?(urls)
+        return true
+    }
+}
 
 // MARK: - Ağaç düğümü
 
@@ -28,12 +57,28 @@ final class Node: NSObject {
         return children.contains { $0.containsEncrypted }
     }
 
-    func sortRecursively() {
-        children.sort { a, b in
-            if a.isDir != b.isDir { return a.isDir }
-            return a.name.localizedStandardCompare(b.name) == .orderedAscending
+    func sortRecursively(key: String = "name", ascending: Bool = true) {
+        children.sort { Node.compare($0, $1, key: key, ascending: ascending) }
+        children.forEach { $0.sortRecursively(key: key, ascending: ascending) }
+    }
+
+    /// Klasörler her zaman önce; sonra seçilen sütuna göre
+    static func compare(_ a: Node, _ b: Node, key: String, ascending: Bool) -> Bool {
+        if a.isDir != b.isDir { return a.isDir }
+        var r: ComparisonResult
+        func cmp<T: Comparable>(_ x: T, _ y: T) -> ComparisonResult { x < y ? .orderedAscending : (x == y ? .orderedSame : .orderedDescending) }
+        switch key {
+        case "size": r = cmp(a.totalSize, b.totalSize)
+        case "packed": r = cmp(a.totalPacked, b.totalPacked)
+        case "date": r = (a.entry?.mtime ?? "").compare(b.entry?.mtime ?? "")
+        case "ratio":
+            let ra = a.totalSize > 0 ? Double(a.totalPacked) / Double(a.totalSize) : 0
+            let rb = b.totalSize > 0 ? Double(b.totalPacked) / Double(b.totalSize) : 0
+            r = cmp(ra, rb)
+        default: r = a.name.localizedStandardCompare(b.name)
         }
-        children.forEach { $0.sortRecursively() }
+        if r == .orderedSame { return a.name.localizedStandardCompare(b.name) == .orderedAscending }
+        return ascending ? r == .orderedAscending : r == .orderedDescending
     }
 
     static func buildTree(_ entries: [ArchiveEntry]) -> Node {
@@ -84,10 +129,14 @@ final class ArchiveWindowController: NSWindowController, NSWindowDelegate, NSMen
     private var filtered: [Node]? = nil
     private var filterText = ""
 
-    private let outline = NSOutlineView()
+    private let outline = ArchiveOutlineView()
     private let scroll = NSScrollView()
     private let statusLabel = NSTextField(labelWithString: "")
     private let emptyLabel = NSTextField(wrappingLabelWithString: L("Bir arşiv açmak için ⌘O kullanın\nveya bir arşiv dosyasını (RAR, ZIP, 7z…) bu pencereye sürükleyin."))
+    private let emptyView = EmptyStateView()
+    private var sortKey = "name"
+    private var sortAscending = true
+    private var previewURLs: [URL] = []
     private let promiseQueue: OperationQueue = {
         let q = OperationQueue(); q.maxConcurrentOperationCount = 1; return q
     }()
@@ -143,6 +192,14 @@ final class ArchiveWindowController: NSWindowController, NSWindowDelegate, NSMen
         outline.addTableColumn(col(Self.ratioCol, L("Oran"), width: 55, align: .right))
         outline.addTableColumn(col(Self.dateCol, L("Değiştirilme"), width: 140))
         outline.addTableColumn(col(Self.crcCol, "CRC32", width: 80))
+        for c in outline.tableColumns where c.identifier != Self.lockCol && c.identifier != Self.crcCol {
+            c.sortDescriptorPrototype = NSSortDescriptor(key: c.identifier.rawValue, ascending: true)
+        }
+        outline.sortDescriptors = [NSSortDescriptor(key: "name", ascending: true)]
+        outline.autosaveName = "ArchiveOutline"
+        outline.autosaveTableColumns = true
+        outline.onReturn = { [weak self] in self?.openSelected(nil) }
+        outline.onSpace = { [weak self] in self?.quickLook(nil) }
         outline.outlineTableColumn = outline.tableColumns[0]
         outline.dataSource = self
         outline.delegate = self
@@ -171,7 +228,21 @@ final class ArchiveWindowController: NSWindowController, NSWindowDelegate, NSMen
         emptyLabel.alignment = .center
         emptyLabel.textColor = .tertiaryLabelColor
         emptyLabel.font = .systemFont(ofSize: 15)
-        emptyLabel.translatesAutoresizingMaskIntoConstraints = false
+        let openBtn = NSButton(title: L("Arşiv Aç…"), target: self, action: #selector(openArchive(_:)))
+        let newBtn = NSButton(title: L("Yeni Arşiv…"), target: self, action: #selector(newArchive(_:)))
+        openBtn.bezelStyle = .rounded; newBtn.bezelStyle = .rounded
+        let btnRow = NSStackView(views: [openBtn, newBtn]); btnRow.spacing = 12
+        let emptyStack = NSStackView(views: [emptyLabel, btnRow])
+        emptyStack.orientation = .vertical; emptyStack.alignment = .centerX; emptyStack.spacing = 18
+        emptyStack.translatesAutoresizingMaskIntoConstraints = false
+        emptyView.translatesAutoresizingMaskIntoConstraints = false
+        emptyView.addSubview(emptyStack)
+        emptyView.onDrop = { [weak self] urls in self?.handleDrop(urls) }
+        NSLayoutConstraint.activate([
+            emptyStack.centerXAnchor.constraint(equalTo: emptyView.centerXAnchor),
+            emptyStack.centerYAnchor.constraint(equalTo: emptyView.centerYAnchor),
+            emptyLabel.widthAnchor.constraint(lessThanOrEqualToConstant: 420),
+        ])
 
         let statusBar = NSVisualEffectView()
         statusBar.material = .titlebar
@@ -181,7 +252,7 @@ final class ArchiveWindowController: NSWindowController, NSWindowDelegate, NSMen
 
         content.addSubview(scroll)
         content.addSubview(statusBar)
-        content.addSubview(emptyLabel)
+        content.addSubview(emptyView)
         NSLayoutConstraint.activate([
             scroll.topAnchor.constraint(equalTo: content.topAnchor),
             scroll.leadingAnchor.constraint(equalTo: content.leadingAnchor),
@@ -194,9 +265,10 @@ final class ArchiveWindowController: NSWindowController, NSWindowDelegate, NSMen
             statusLabel.leadingAnchor.constraint(equalTo: statusBar.leadingAnchor, constant: 10),
             statusLabel.trailingAnchor.constraint(equalTo: statusBar.trailingAnchor, constant: -10),
             statusLabel.centerYAnchor.constraint(equalTo: statusBar.centerYAnchor),
-            emptyLabel.centerXAnchor.constraint(equalTo: scroll.centerXAnchor),
-            emptyLabel.centerYAnchor.constraint(equalTo: scroll.centerYAnchor),
-            emptyLabel.widthAnchor.constraint(lessThanOrEqualToConstant: 420),
+            emptyView.leadingAnchor.constraint(equalTo: scroll.leadingAnchor),
+            emptyView.trailingAnchor.constraint(equalTo: scroll.trailingAnchor),
+            emptyView.topAnchor.constraint(equalTo: scroll.topAnchor, constant: 28),
+            emptyView.bottomAnchor.constraint(equalTo: scroll.bottomAnchor),
         ])
         updateStatus()
     }
@@ -204,6 +276,7 @@ final class ArchiveWindowController: NSWindowController, NSWindowDelegate, NSMen
     private func buildContextMenu() -> NSMenu {
         let m = NSMenu()
         m.addItem(withTitle: L("Aç"), action: #selector(openSelected), keyEquivalent: "")
+        m.addItem(withTitle: L("Göz At"), action: #selector(quickLook(_:)), keyEquivalent: "")
         m.addItem(.separator())
         m.addItem(withTitle: L("Seçilenleri Buraya Çıkart"), action: #selector(extractSelectedHere), keyEquivalent: "")
         m.addItem(withTitle: L("Seçilenleri Şuraya Çıkart…"), action: #selector(extractSelectedTo), keyEquivalent: "")
@@ -255,6 +328,7 @@ final class ArchiveWindowController: NSWindowController, NSWindowDelegate, NSMen
         }
         self.info = info
         root = Node.buildTree(info.entries)
+        root.sortRecursively(key: sortKey, ascending: sortAscending)
         applyFilter()
         window?.title = (path as NSString).lastPathComponent
         window?.subtitle = (path as NSString).deletingLastPathComponent.replacingOccurrences(of: NSHomeDirectory(), with: "~")
@@ -265,6 +339,10 @@ final class ArchiveWindowController: NSWindowController, NSWindowDelegate, NSMen
         }
         if ProcessInfo.processInfo.environment["MACRAR_DEBUG_EXPAND"] != nil {
             outline.expandItem(nil, expandChildren: true)
+        }
+        if let sort = ProcessInfo.processInfo.environment["MACRAR_DEBUG_SORT"] {   // örn. size:desc
+            let parts = sort.split(separator: ":")
+            outline.sortDescriptors = [NSSortDescriptor(key: String(parts[0]), ascending: parts.count < 2 || parts[1] != "desc")]
         }
         if let size = ProcessInfo.processInfo.environment["MACRAR_DEBUG_WINDOW"] {
             let parts = size.split(separator: "x").compactMap { Double($0) }
@@ -302,13 +380,14 @@ final class ArchiveWindowController: NSWindowController, NSWindowDelegate, NSMen
             var all: [Node] = []
             root.flatten(into: &all)
             filtered = all.filter { $0.path.localizedCaseInsensitiveContains(filterText) }
+                .sorted { Node.compare($0, $1, key: sortKey, ascending: sortAscending) }
         }
         outline.reloadData()
         updateStatus()
     }
 
     private func updateStatus() {
-        emptyLabel.isHidden = info != nil
+        emptyView.isHidden = info != nil
         guard let info else {
             statusLabel.stringValue = L("Arşiv açık değil")
             return
@@ -403,7 +482,7 @@ final class ArchiveWindowController: NSWindowController, NSWindowDelegate, NSMen
         guard let info else { return }
         Ops.extract(info: info, names: names, dest: dest, password: password, host: window) { [weak self] ok, pw in
             self?.password = pw ?? self?.password
-            if ok { Ops.revealInFinder(dest) }
+            if ok { Ops.revealExtracted(info: info, names: names, dest: dest) }
         }
     }
 
@@ -469,7 +548,7 @@ final class ArchiveWindowController: NSWindowController, NSWindowDelegate, NSMen
 
     private func openNode(_ n: Node) {
         guard let info else { return }
-        let tmp = FileManager.default.temporaryDirectory.appendingPathComponent("MacRAR-\(UUID().uuidString)").path
+        let tmp = TempDirs.make("MacRAR-open")
         Ops.extract(info: info, names: [n.path], dest: tmp, password: password, host: window, quiet: true) { [weak self] ok, pw in
             self?.password = pw ?? self?.password
             guard ok else { return }
@@ -477,6 +556,38 @@ final class ArchiveWindowController: NSWindowController, NSWindowDelegate, NSMen
             NSWorkspace.shared.open(URL(fileURLWithPath: target))
         }
     }
+
+    // MARK: Görünüm eylemleri
+
+    @objc func expandAll(_ sender: Any?) { outline.expandItem(nil, expandChildren: true) }
+    @objc func collapseAll(_ sender: Any?) { outline.collapseItem(nil, collapseChildren: true) }
+    @objc func refresh(_ sender: Any?) { reload() }
+    @objc func revealArchive(_ sender: Any?) { if let p = archivePath { Ops.revealInFinder(p) } }
+
+    // MARK: Hızlı Bakış
+
+    @objc func quickLook(_ sender: Any?) {
+        if let panel = QLPreviewPanel.shared(), panel.isVisible { panel.orderOut(nil); return }
+        prepareQuickLook { QLPreviewPanel.shared()?.makeKeyAndOrderFront(nil) }
+    }
+
+    private func prepareQuickLook(completion: @escaping () -> Void) {
+        guard let info else { return }
+        let files = selectedNodes().filter { !$0.isDir }
+        guard !files.isEmpty else { return }
+        let tmp = TempDirs.make("MacRAR-ql")
+        Ops.extract(info: info, names: files.map { $0.path }, dest: tmp, password: password, host: window, quiet: true) { [weak self] ok, pw in
+            guard let self else { return }
+            self.password = pw ?? self.password
+            guard ok else { return }
+            self.previewURLs = files.map { URL(fileURLWithPath: (tmp as NSString).appendingPathComponent($0.path)) }
+            completion()
+        }
+    }
+
+    override func acceptsPreviewPanelControl(_ panel: QLPreviewPanel!) -> Bool { true }
+    override func beginPreviewPanelControl(_ panel: QLPreviewPanel!) { panel.dataSource = self; panel.delegate = self }
+    override func endPreviewPanelControl(_ panel: QLPreviewPanel!) { panel.dataSource = nil; panel.delegate = nil }
 
     @objc func searchChanged(_ sender: NSSearchField) {
         filterText = sender.stringValue.trimmingCharacters(in: .whitespaces)
@@ -506,6 +617,10 @@ final class ArchiveWindowController: NSWindowController, NSWindowDelegate, NSMen
             return info?.supportsModification == true && !outline.selectedRowIndexes.isEmpty
         case #selector(extractSelectedHere), #selector(extractSelectedTo), #selector(openSelected):
             return info != nil && !outline.selectedRowIndexes.isEmpty
+        case #selector(quickLook(_:)):
+            return info != nil && selectedNodes().contains { !$0.isDir }
+        case #selector(expandAll(_:)), #selector(collapseAll(_:)), #selector(refresh(_:)), #selector(revealArchive(_:)):
+            return info != nil
         default:
             return true
         }
@@ -649,7 +764,20 @@ extension ArchiveWindowController: NSOutlineViewDataSource, NSOutlineViewDelegat
         return img
     }
 
-    func outlineViewSelectionDidChange(_ notification: Notification) { updateStatus() }
+    func outlineViewSelectionDidChange(_ notification: Notification) {
+        updateStatus()
+        if let panel = QLPreviewPanel.shared(), panel.isVisible, panel.dataSource === self {
+            prepareQuickLook { panel.reloadData() }
+        }
+    }
+
+    func outlineView(_ outlineView: NSOutlineView, sortDescriptorsDidChange oldDescriptors: [NSSortDescriptor]) {
+        guard let d = outlineView.sortDescriptors.first, let key = d.key else { return }
+        sortKey = key
+        sortAscending = d.ascending
+        root.sortRecursively(key: sortKey, ascending: sortAscending)
+        applyFilter()
+    }
 
     // Sürükle-bırak: arşiv dosyası bırakıldığında aç, diğer dosyaları arşive ekle
     func outlineView(_ outlineView: NSOutlineView, validateDrop info: NSDraggingInfo, proposedItem item: Any?, proposedChildIndex index: Int) -> NSDragOperation {
@@ -660,6 +788,11 @@ extension ArchiveWindowController: NSOutlineViewDataSource, NSOutlineViewDelegat
     }
     func outlineView(_ outlineView: NSOutlineView, acceptDrop info: NSDraggingInfo, item: Any?, childIndex index: Int) -> Bool {
         guard let urls = info.draggingPasteboard.readObjects(forClasses: [NSURL.self]) as? [URL], !urls.isEmpty else { return false }
+        handleDrop(urls)
+        return true
+    }
+
+    func handleDrop(_ urls: [URL]) {
         let paths = urls.map { $0.path }
         let archives = paths.filter { AppDelegate.isArchive($0) }
         let others = paths.filter { !AppDelegate.isArchive($0) }
@@ -673,7 +806,6 @@ extension ArchiveWindowController: NSOutlineViewDataSource, NSOutlineViewDelegat
         } else {
             DispatchQueue.main.async { [weak self] in self?.addItems(others) }
         }
-        return true
     }
 
     // Arşivden Finder'a sürükleme (dosya vaadi)
@@ -757,5 +889,21 @@ extension ArchiveWindowController: NSFilePromiseProviderDelegate {
             DispatchQueue.main.async { self.dragTempDir = nil }
         }
         completionHandler(error)
+    }
+}
+
+// MARK: - Hızlı Bakış veri kaynağı
+
+extension ArchiveWindowController: QLPreviewPanelDataSource, QLPreviewPanelDelegate {
+    func numberOfPreviewItems(in panel: QLPreviewPanel!) -> Int { previewURLs.count }
+    func previewPanel(_ panel: QLPreviewPanel!, previewItemAt index: Int) -> QLPreviewItem! { previewURLs[index] as NSURL }
+    func previewPanel(_ panel: QLPreviewPanel!, handle event: NSEvent!) -> Bool {
+        // Ok tuşlarını listeye ilet (Finder davranışı)
+        if event.type == .keyDown, let ch = event.charactersIgnoringModifiers?.unicodeScalars.first,
+           ch == UnicodeScalar(NSUpArrowFunctionKey) || ch == UnicodeScalar(NSDownArrowFunctionKey) {
+            outline.keyDown(with: event)
+            return true
+        }
+        return false
     }
 }

@@ -37,7 +37,9 @@ Uygulama yaklaşık 2.000 satır Swift'tir, Xcode projesi gerektirmez (Command L
 
 ## Özellikler
 
-- **Arşiv görüntüleme:** Arşivi çift tıklayınca içeriği klasör ağacı olarak açılır (ad, şifreli işareti, boyut, paketli boyut, oran, tarih, CRC).
+- **Arşiv görüntüleme:** Arşivi çift tıklayınca içeriği klasör ağacı olarak açılır (ad, şifreli işareti, boyut, paketli boyut, oran, tarih, CRC). Sütun başlığına tıklayarak sıralanır; genişlikler ve sıralama hatırlanır.
+- **Klavye ve menüler:** Return ile seçili dosya açılır, Space ile Hızlı Bakış önizlemesi gelir; Görünüm menüsünde Tümünü Genişlet/Daralt, Yenile ve Arşivi Finder'da Göster; Dosya → Son Kullanılanlar.
+- **Ayarlar (⌘,):** Hızlı sıkıştırma için varsayılan biçim ve düzey, çıkartma/sıkıştırma sonrası Finder'da gösterme, güncelleme denetimi, arayüz dili.
 - **Şifreli arşivler:** İçeriği şifreli ve dosya adları şifreli arşivler desteklenir. Şifre gerektiğinde sorulur, yanlışsa tekrar sorulur.
 - **Çıkartma:** Buraya çıkart (⌘E), arşiv adıyla klasöre çıkart (⌥⌘E), şuraya çıkart… (⇧⌘E), yalnızca seçilenleri çıkart. Hedefte aynı adlı dosya varsa üzerine yaz / yeniden adlandır / iptal sorulur.
 - **Sıkıştırma:** Biçim seçimi (RAR5/RAR4/7z/ZIP/TAR/TAR.GZ/TAR.XZ/TAR.BZ2), 6 sıkıştırma düzeyi, şifre (isteğe bağlı dosya adlarını da şifreleme), katı arşiv, kurtarma kaydı, parçalara bölme, SFX, kaynakları silme. Biçimin desteklemediği seçenekler otomatik kapanır.
