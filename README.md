@@ -76,6 +76,10 @@ The whole app is about 2,000 lines of Swift, needs no Xcode project (Command Lin
 
 `.rar` goes through `unrar`/`rar`; everything else goes through `7zz`. Compressed tar archives (`tar.gz`, `tar.xz`, …) are handled with a two-stage pipeline, outer decompressor piped into the tar reader, so their contents are listed directly.
 
+## Download
+
+Ready-made, Developer ID-signed and Apple-notarized builds are on the [Releases page](https://github.com/mstcvk/MacRAR/releases/latest): open the DMG, drag MacRAR into Applications, launch it once and choose *MacRAR → (Re)install Finder Quick Actions* to get the right-click menu. No Gatekeeper warnings.
+
 ## Requirements
 
 - macOS 13 Ventura or newer, Apple Silicon (the bundled binaries are arm64; for Intel, fetch the x64 builds and rebuild).

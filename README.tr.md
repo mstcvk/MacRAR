@@ -55,6 +55,10 @@ Uygulama yaklaşık 2.000 satır Swift'tir, Xcode projesi gerektirmez (Command L
   - MacRAR • Sıkıştır (RAR) (varsayılan ayarlarla, soru sormadan)
   - MacRAR • Arşiv Oluştur… (biçim ve seçenek penceresiyle)
 
+## İndirme
+
+Developer ID ile imzalı ve Apple tarafından notarize edilmiş hazır sürümler [Releases sayfasında](https://github.com/mstcvk/MacRAR/releases/latest): DMG'yi açın, MacRAR'ı Uygulamalar klasörüne sürükleyin, bir kez çalıştırıp *MacRAR → Finder Hızlı Eylemlerini (Yeniden) Yükle* komutunu verin. Gatekeeper uyarısı çıkmaz.
+
 ## Gereksinimler
 
 - macOS 13 Ventura veya üstü, Apple Silicon (ikililer arm64'tür; Intel için x64 sürümlerini indirip yeniden derleyin).
