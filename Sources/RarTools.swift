@@ -10,6 +10,14 @@ enum AppInfo {
         return false
         #endif
     }
+    /// Kullanıcının gerçek ev klasörü (sandbox içinde NSHomeDirectory() uygulama kabını döndürür)
+    static let realHome: String = {
+        if let pw = getpwuid(getuid()), let dir = pw.pointee.pw_dir { return String(cString: dir) }
+        return NSHomeDirectory()
+    }()
+    static func abbreviate(_ path: String) -> String {
+        path == realHome ? "~" : (path.hasPrefix(realHome + "/") ? "~" + path.dropFirst(realHome.count) : path)
+    }
     static var supportDir: String {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!.path
         return (base as NSString).appendingPathComponent(name)

@@ -402,12 +402,29 @@ final class RarJob {
             let lineData = buffer[buffer.startIndex..<nl]
             buffer.removeSubrange(buffer.startIndex...nl)
             let line = String(decoding: lineData, as: UTF8.self)
-            output += line.replacingOccurrences(of: "\u{8}", with: "") + "\n"
-            parse(line)
+            output += Self.lastSegment(line, keepAll: true) + "\n"
+            parse(Self.lastSegment(line))
         }
-        if !buffer.isEmpty, buffer.count < 4096 {
-            parse(String(decoding: buffer, as: UTF8.self))
+        // Satır sonu gelmeden geri-silme (\u{8}) ile güncellenen ilerleme: yalnızca en son durumu oku
+        if !buffer.isEmpty {
+            let tail = String(decoding: buffer.suffix(512), as: UTF8.self)
+            parse(Self.lastSegment(tail))
+            // Uzun süren tek dosyada tampon şişmesin: son geri-silme dizisinden öncesini at
+            if buffer.count > 64 * 1024, let cut = buffer.lastIndex(of: 0x08) {
+                buffer.removeSubrange(buffer.startIndex...cut)
+            }
         }
+    }
+
+    /// Geri-silme ile üst üste yazılmış bir satırın ekranda görünen son hali
+    private static func lastSegment(_ s: String, keepAll: Bool = false) -> String {
+        let parts = s.components(separatedBy: "\u{8}").filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+        if keepAll {
+            // Günlük için: tekrar eden yüzde parçalarını at, anlamlı metni koru
+            let meaningful = parts.filter { $0.trimmingCharacters(in: .whitespaces).range(of: #"^\d{1,3}%( \d+)?$"#, options: .regularExpression) == nil }
+            return meaningful.joined(separator: " ")
+        }
+        return parts.last ?? ""
     }
 
     private func flushPartial() {

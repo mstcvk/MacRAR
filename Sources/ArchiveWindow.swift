@@ -331,7 +331,7 @@ final class ArchiveWindowController: NSWindowController, NSWindowDelegate, NSMen
         root.sortRecursively(key: sortKey, ascending: sortAscending)
         applyFilter()
         window?.title = (path as NSString).lastPathComponent
-        window?.subtitle = (path as NSString).deletingLastPathComponent.replacingOccurrences(of: NSHomeDirectory(), with: "~")
+        window?.subtitle = AppInfo.abbreviate((path as NSString).deletingLastPathComponent)
         window?.representedURL = URL(fileURLWithPath: path)
         outline.reloadData()
         if root.children.count == 1, let only = root.children.first, only.isDir {
@@ -851,7 +851,7 @@ extension ArchiveWindowController: NSFilePromiseProviderDelegate {
                 let title = nodes.count == 1
                     ? LF("\"%@\" \"%@\" klasörüne çıkartılsın mı?", nodes[0].name, destName)
                     : LF("%d öğe \"%@\" klasörüne çıkartılsın mı?", nodes.count, destName)
-                dragDecision = Dialogs.confirm(title, LF("Arşiv: %@\nHedef: %@\nÖğeler: %@", (info.path as NSString).lastPathComponent, destFolder.path.replacingOccurrences(of: NSHomeDirectory(), with: "~"), list), okTitle: L("Çıkart"))
+                dragDecision = Dialogs.confirm(title, LF("Arşiv: %@\nHedef: %@\nÖğeler: %@", (info.path as NSString).lastPathComponent, AppInfo.abbreviate(destFolder.path), list), okTitle: L("Çıkart"))
             }
             guard dragDecision == true else { error = CocoaError(.userCancelled); sem.signal(); return }
 

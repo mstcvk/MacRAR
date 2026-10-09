@@ -76,7 +76,7 @@ enum FolderAccess {
         panel.prompt = L("İzin Ver")
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
-        panel.directoryURL = URL(fileURLWithPath: NSHomeDirectory().components(separatedBy: "/Library/Containers/").first ?? NSHomeDirectory())
+        panel.directoryURL = URL(fileURLWithPath: AppInfo.realHome)
         Dialogs.activate()
         if panel.runModal() == .OK, let url = panel.url { remember(url) }
         #endif
