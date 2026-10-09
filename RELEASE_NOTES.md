@@ -1,18 +1,13 @@
-## MacRAR 1.4
+## MacRAR 1.4.1
 
 Signed with Developer ID and notarized by Apple: open the DMG, drag MacRAR to Applications, done.
 
-**Licence clean-up**
-- RARLAB's `rar` and `unrar` are no longer bundled: their licence does not allow redistributing `rar` separately. All archives, RAR included, are now opened with the bundled 7-Zip engine (RAR4, RAR5, encrypted and multi-part sets).
-- Creating or modifying RAR archives now uses *your own* copy of RARLAB's "RAR for macOS": MacRAR shows the download page and lets you point it at the downloaded file once (Settings → RAR tool). ZIP, 7z and TAR creation need nothing extra. RAR 4 creation was removed (RAR 7 no longer supports it).
+**Security fix**
+- Files extracted from an archive you downloaded now inherit the archive's quarantine flag (`com.apple.quarantine`), exactly like Archive Utility does. Before, an app or script inside a downloaded archive could run without the usual Gatekeeper check (the macOS counterpart of Windows' CVE-2025-0411). Fixes #1.
 
-**Fixed**
-- The progress bar stayed at 0% while a single large file was being extracted from 7z/ZIP archives.
+**Reliability**
+- MacRAR 1.3 crashed at launch on Macs set to a language other than Turkish (a duplicated entry in the English string table). 1.4 already fixed it; the build now refuses to compile if that ever happens again.
 
-**New**
-- Universal app: runs natively on Apple Silicon and Intel Macs.
-- Settings shows the RAR tool status with install/remove buttons.
+**Requirements:** macOS 13+ (Apple Silicon and Intel). Creating RAR archives needs RARLAB's RAR for macOS (paid, 40-day trial); everything else is free.
 
-**Requirements:** macOS 13+. Creating RAR archives needs RARLAB's RAR for macOS (paid, 40-day trial); everything else is free.
-
-Also on the Mac App Store as **Easy Mac Archiver** (sandboxed, no RAR creation).
+Also on the Mac App Store as **Easy Mac Archiver**.
