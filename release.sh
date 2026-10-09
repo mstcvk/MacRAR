@@ -21,7 +21,7 @@ fi
 [[ -n "$IDENTITY" ]] || { echo "Developer ID Application sertifikası bulunamadı. Xcode → Settings → Accounts → Manage Certificates… ile oluşturun."; exit 1; }
 VERSION=$(/usr/libexec/PlistBuddy -c "Print CFBundleShortVersionString" "$APP/Contents/Info.plist")
 echo "▸ İmzalanıyor: $IDENTITY"
-for bin in rar unrar default.sfx 7zz; do
+for bin in 7zz; do
   codesign --force --options runtime --timestamp --sign "$IDENTITY" "$APP/Contents/Resources/$bin"
 done
 codesign --force --options runtime --timestamp --sign "$IDENTITY" "$APP"

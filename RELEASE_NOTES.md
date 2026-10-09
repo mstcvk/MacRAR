@@ -1,21 +1,18 @@
-## MacRAR 1.3
+## MacRAR 1.4
 
 Signed with Developer ID and notarized by Apple: open the DMG, drag MacRAR to Applications, done.
 
-**UI / UX**
-- Click a column header to sort (folders stay first); column widths and sort order are remembered.
-- Keyboard: Return opens the selected file, Space shows a Quick Look preview (⌘Y from the View menu), ⌥⌘→ / ⌥⌘← expand or collapse everything, ⌘R refreshes, ⇧⌘R shows the archive in Finder.
-- Quick Look preview of files inside the archive, with arrow keys moving through the list.
-- Empty window now has *Open Archive…* and *New Archive…* buttons and accepts dropped files.
-- File → Open Recent lists the last archives.
-- Settings window (⌘,): default format and level for quick compression, reveal-in-Finder behaviour, update check, interface language.
-- Create Archive dialog remembers the last format and options; *also encrypt file names* is only enabled once a password is typed.
-- Overwrite prompt gained a *Skip* option; after extraction the extracted items are selected in Finder; after compression the new archive is revealed.
-- Password prompts have a *Show password* toggle; error dialogs show the engine output with a *Copy Details* button.
-- The Open dialog now lists every supported archive type, not only RAR.
-- Temporary files from previews and double-click opens are cleaned up when the app quits.
+**Licence clean-up**
+- RARLAB's `rar` and `unrar` are no longer bundled: their licence does not allow redistributing `rar` separately. All archives, RAR included, are now opened with the bundled 7-Zip engine (RAR4, RAR5, encrypted and multi-part sets).
+- Creating or modifying RAR archives now uses *your own* copy of RARLAB's "RAR for macOS": MacRAR shows the download page and lets you point it at the downloaded file once (Settings → RAR tool). ZIP, 7z and TAR creation need nothing extra. RAR 4 creation was removed (RAR 7 no longer supports it).
 
-**Highlights**
-- RAR, 7z, ZIP, TAR and 30+ formats; encrypted and multi-volume archives; Finder context-menu entries; English and Turkish interface; automatic update check.
+**Fixed**
+- The progress bar stayed at 0% while a single large file was being extracted from 7z/ZIP archives.
 
-**Requirements:** macOS 13+, Apple Silicon. Creating RAR archives needs a WinRAR licence (bundled `rar` is the trial); everything else is free.
+**New**
+- Universal app: runs natively on Apple Silicon and Intel Macs.
+- Settings shows the RAR tool status with install/remove buttons.
+
+**Requirements:** macOS 13+. Creating RAR archives needs RARLAB's RAR for macOS (paid, 40-day trial); everything else is free.
+
+Also on the Mac App Store as **Easy Mac Archiver** (sandboxed, no RAR creation).
