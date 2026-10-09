@@ -62,7 +62,7 @@ The whole app is about 2,000 lines of Swift, needs no Xcode project (Command Lin
 - The interface is in English or Turkish, following the system language (or the per-app language chosen in System Settings → General → Language & Region). `MACRAR_LANG=tr|en` overrides it.
 
 **Finder integration**
-- Seven Quick Actions in Finder's right-click menu: *Open with MacRAR*, *Extract Here*, *Extract to Folder*, *Extract to…*, *Test*, *Compress (RAR)*, *Create Archive…*.
+- Right-click menu in Finder: *Open with MacRAR*, *MacRAR: Extract Here*, *MacRAR: Extract to Folder* (shown for archives) and *Compress with MacRAR…* (shown for any selection) appear directly in the context menu; *Extract To…*, *Test* and *Compress (RAR)* live in the *Quick Actions* submenu.
 - Registers as the owner of `.rar` and as an alternate handler for ZIP, 7z, TAR, GZ, BZ2, XZ, ZST, CAB, ISO and more, so they appear in *Open With*. One menu command makes MacRAR the default for all of them.
 
 ## Supported formats

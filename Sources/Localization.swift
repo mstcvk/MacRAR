@@ -80,7 +80,8 @@ enum L10n {
         "%d hızlı eylem kuruldu. Finder'da bir dosyaya sağ tıklayıp \"Hızlı Eylemler\" menüsünden kullanabilirsiniz.": "%d Quick Action(s) installed. Right-click a file in Finder and use the \"Quick Actions\" menu.",
         "Geliştirici: Mesut Çevik\n": "Developer: Mesut Çevik\n",
         // Hızlı eylemler
-        "MacRAR ile Aç": "Open with MacRAR", "MacRAR • Buraya Çıkart": "MacRAR • Extract Here", "MacRAR • Klasöre Çıkart": "MacRAR • Extract to Folder",
+        "MacRAR ile Aç": "Open with MacRAR", "MacRAR: Buraya Çıkart": "MacRAR: Extract Here", "MacRAR: Klasöre Çıkart": "MacRAR: Extract to Folder",
+        "MacRAR ile Sıkıştır…": "Compress with MacRAR…", "MacRAR • Buraya Çıkart": "MacRAR • Extract Here", "MacRAR • Klasöre Çıkart": "MacRAR • Extract to Folder",
         "MacRAR • Şuraya Çıkart…": "MacRAR • Extract To…", "MacRAR • Test Et": "MacRAR • Test", "MacRAR • Sıkıştır (RAR)": "MacRAR • Compress (RAR)",
         "MacRAR • Arşiv Oluştur…": "MacRAR • Create Archive…",
         // Sıkıştırma penceresi

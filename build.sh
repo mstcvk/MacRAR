@@ -54,9 +54,16 @@ cp "$SEVENZIP_LICENSE" "$APP/Contents/Resources/7zip-license.txt" 2>/dev/null ||
 chmod +x "$APP/Contents/Resources/rar" "$APP/Contents/Resources/unrar" "$APP/Contents/Resources/default.sfx" "$APP/Contents/Resources/7zz"
 xattr -cr "$APP"
 
-echo "▸ İmzalanıyor (ad-hoc)"
-codesign --force --sign - "$APP/Contents/Resources/rar" "$APP/Contents/Resources/unrar" "$APP/Contents/Resources/default.sfx" "$APP/Contents/Resources/7zz" 2>/dev/null || true
-codesign --force --deep --sign - "$APP"
+IDENTITY=$(security find-identity -v -p codesigning 2>/dev/null | grep -o '"Developer ID Application: [^"]*"' | head -1 | tr -d '"')
+if [[ -n "$IDENTITY" ]]; then
+  echo "▸ İmzalanıyor: $IDENTITY"
+  for b in rar unrar default.sfx 7zz; do codesign --force --options runtime --timestamp --sign "$IDENTITY" "$APP/Contents/Resources/$b" 2>/dev/null; done
+  codesign --force --options runtime --timestamp --sign "$IDENTITY" "$APP"
+else
+  echo "▸ İmzalanıyor (ad-hoc)"
+  codesign --force --sign - "$APP/Contents/Resources/rar" "$APP/Contents/Resources/unrar" "$APP/Contents/Resources/default.sfx" "$APP/Contents/Resources/7zz" 2>/dev/null || true
+  codesign --force --deep --sign - "$APP"
+fi
 echo "✔ Derlendi: $APP"
 
 if [[ "$1" == "install" ]]; then

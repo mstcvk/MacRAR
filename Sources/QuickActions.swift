@@ -5,18 +5,30 @@ enum QuickActions {
     struct Action {
         let name: String        // menüde görünen ad
         let flag: String?       // nil → arşivi uygulamada aç
-        let icon: String
+        let topLevel: Bool      // true → Finder sağ tık menüsünde doğrudan (Servis); false → "Hızlı Eylemler" alt menüsü
+        let fileTypes: [String] // hangi seçimlerde görünsün (UTI)
     }
 
-    static let actions: [Action] = [
-        Action(name: L("MacRAR ile Aç"), flag: nil, icon: "NSActionTemplate"),
-        Action(name: L("MacRAR • Buraya Çıkart"), flag: "--extract-here", icon: "NSActionTemplate"),
-        Action(name: L("MacRAR • Klasöre Çıkart"), flag: "--extract-folder", icon: "NSActionTemplate"),
-        Action(name: L("MacRAR • Şuraya Çıkart…"), flag: "--extract-to", icon: "NSActionTemplate"),
-        Action(name: L("MacRAR • Test Et"), flag: "--test", icon: "NSActionTemplate"),
-        Action(name: L("MacRAR • Sıkıştır (RAR)"), flag: "--compress", icon: "NSActionTemplate"),
-        Action(name: L("MacRAR • Arşiv Oluştur…"), flag: "--compress-dialog", icon: "NSActionTemplate"),
+    static let archiveTypes = [
+        "com.rarlab.rar-archive", "com.mesut.macrar.archive", "public.zip-archive", "org.7-zip.7-zip-archive",
+        "public.tar-archive", "org.gnu.gnu-zip-archive", "org.gnu.gnu-zip-tar-archive", "public.bzip2-archive",
+        "org.tukaani.xz-archive", "public.archive", "com.microsoft.cab-archive", "public.iso-image", "com.sun.java-archive",
     ]
+    static let anyType = ["public.item"]
+
+    static var actions: [Action] {
+        [
+            // Üst seviye (Servis)
+            Action(name: L("MacRAR ile Aç"), flag: nil, topLevel: true, fileTypes: archiveTypes),
+            Action(name: L("MacRAR: Buraya Çıkart"), flag: "--extract-here", topLevel: true, fileTypes: archiveTypes),
+            Action(name: L("MacRAR: Klasöre Çıkart"), flag: "--extract-folder", topLevel: true, fileTypes: archiveTypes),
+            Action(name: L("MacRAR ile Sıkıştır…"), flag: "--compress-dialog", topLevel: true, fileTypes: anyType),
+            // Hızlı Eylemler alt menüsü
+            Action(name: L("MacRAR • Şuraya Çıkart…"), flag: "--extract-to", topLevel: false, fileTypes: archiveTypes),
+            Action(name: L("MacRAR • Test Et"), flag: "--test", topLevel: false, fileTypes: archiveTypes),
+            Action(name: L("MacRAR • Sıkıştır (RAR)"), flag: "--compress", topLevel: false, fileTypes: anyType),
+        ]
+    }
 
     static var servicesDir: String {
         (NSHomeDirectory() as NSString).appendingPathComponent("Library/Services")
@@ -30,7 +42,8 @@ enum QuickActions {
         try? fm.createDirectory(atPath: servicesDir, withIntermediateDirectories: true)
         // Eski sürümleri temizle
         if let items = try? fm.contentsOfDirectory(atPath: servicesDir) {
-            for i in items where i.hasPrefix("RAR • ") || i.hasPrefix("MacRAR • ") || i == "MacRAR ile Aç.workflow" || i == "Open with MacRAR.workflow" {
+            for i in items where i.hasPrefix("RAR • ") || i.hasPrefix("MacRAR • ") || i.hasPrefix("MacRAR ile ") || i.hasPrefix("MacRAR: ")
+                || i.hasPrefix("Open with MacRAR") || i.hasPrefix("Compress with MacRAR") {
                 try? fm.removeItem(atPath: (servicesDir as NSString).appendingPathComponent(i))
             }
         }
@@ -45,8 +58,24 @@ enum QuickActions {
             }
             if write(action: a, command: cmd) { count += 1 }
         }
+        enableInFinder(actions.map { $0.name })
         refreshServices()
         return count
+    }
+
+    /// pbs tercihlerinde servisleri etkin işaretler (macOS yeni eklenenleri kapalı tutabiliyor)
+    private static func enableInFinder(_ names: [String]) {
+        let domain = "pbs" as CFString
+        var status = (CFPreferencesCopyAppValue("NSServicesStatus" as CFString, domain) as? [String: Any]) ?? [:]
+        for n in names {
+            status["(null) - \(n) - runWorkflowAsService"] = [
+                "enabled_context_menu": true,
+                "enabled_services_menu": true,
+                "presentation_modes": ["ContextMenu": true, "FinderPreview": true, "ServicesMenu": true],
+            ]
+        }
+        CFPreferencesSetAppValue("NSServicesStatus" as CFString, status as CFDictionary, domain)
+        CFPreferencesAppSynchronize(domain)
     }
 
     private static func shellQuote(_ s: String) -> String {
@@ -66,7 +95,7 @@ enum QuickActions {
         let fm = FileManager.default
         do {
             try fm.createDirectory(atPath: contents, withIntermediateDirectories: true)
-            try infoPlist(name: action.name, icon: action.icon).write(toFile: (contents as NSString).appendingPathComponent("Info.plist"), atomically: true, encoding: .utf8)
+            try infoPlist(action: action).write(toFile: (contents as NSString).appendingPathComponent("Info.plist"), atomically: true, encoding: .utf8)
             try documentWflow(command: command).write(toFile: (contents as NSString).appendingPathComponent("document.wflow"), atomically: true, encoding: .utf8)
             return true
         } catch {
@@ -87,8 +116,18 @@ enum QuickActions {
         }
     }
 
-    private static func infoPlist(name: String, icon: String) -> String {
+    private static func infoPlist(action: Action) -> String {
+        // NSIconName / NSBackgroundColorName bulunan servisler Finder'da "Hızlı Eylemler" alt menüsüne gider;
+        // bulunmayanlar doğrudan sağ tık menüsünde listelenir.
+        let quickKeys = action.topLevel ? "" : """
+                    <key>NSBackgroundColorName</key>
+                    <string>background</string>
+                    <key>NSIconName</key>
+                    <string>NSActionTemplate</string>
+
         """
+        let types = action.fileTypes.map { "                        <string>\($0)</string>" }.joined(separator: "\n")
+        return """
         <?xml version="1.0" encoding="UTF-8"?>
         <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
         <plist version="1.0">
@@ -96,14 +135,10 @@ enum QuickActions {
             <key>NSServices</key>
             <array>
                 <dict>
-                    <key>NSBackgroundColorName</key>
-                    <string>background</string>
-                    <key>NSIconName</key>
-                    <string>\(icon)</string>
-                    <key>NSMenuItem</key>
+        \(quickKeys)            <key>NSMenuItem</key>
                     <dict>
                         <key>default</key>
-                        <string>\(xmlEscape(name))</string>
+                        <string>\(xmlEscape(action.name))</string>
                     </dict>
                     <key>NSMessage</key>
                     <string>runWorkflowAsService</string>
@@ -114,7 +149,7 @@ enum QuickActions {
                     </dict>
                     <key>NSSendFileTypes</key>
                     <array>
-                        <string>public.item</string>
+        \(types)
                     </array>
                 </dict>
             </array>
