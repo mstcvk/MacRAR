@@ -1,0 +1,18 @@
+App Review Information — Easy Mac Archiver 1.0
+
+Sign-in required: NO (leave unchecked)
+First name: Mesut
+Last name: Çevik
+Phone: +90 543 715 44 84
+Email: mesutcevik@gmail.com
+
+Notes:
+No account or sign-in is needed.
+
+How to test:
+1. Open any .rar, .zip or .7z file (File > Open Archive…). The archive is shown as a folder tree; press Space on a file for Quick Look.
+2. Use Extract Here / To Folder / Extract… in the toolbar. Archives in Downloads work immediately; for other folders the app asks once for folder access with the standard Open panel (App Sandbox, security-scoped bookmarks).
+3. Finder integration: right-click a file in Finder and choose "Easy Archiver: Extract Here", "Easy Archiver: Extract to Folder" or "Compress with Easy Archiver…" (NSServices provided by the app; if they are not shown, enable them in System Settings > Keyboard > Keyboard Shortcuts > Services).
+4. Encrypted archives: the password is asked for only when needed.
+
+The app bundles the official 7-Zip command-line engine (7zz, GNU LGPL) inside Contents/Resources; it is signed with the app and runs inside the app's sandbox (com.apple.security.inherit). Creating RAR archives is intentionally not offered because RAR compression is proprietary to RARLAB.
