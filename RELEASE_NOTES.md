@@ -1,12 +1,11 @@
-## MacRAR 1.4.1
+## MacRAR 1.4.2
 
 Signed with Developer ID and notarized by Apple: open the DMG, drag MacRAR to Applications, done.
 
-**Security fix**
-- Files extracted from an archive you downloaded now inherit the archive's quarantine flag (`com.apple.quarantine`), exactly like Archive Utility does. Before, an app or script inside a downloaded archive could run without the usual Gatekeeper check (the macOS counterpart of Windows' CVE-2025-0411). Fixes #1.
+**New icon**
+- A new icon — a 3D stack of archive layers — replaces the old one with the "RAR" wordmark ("RAR" is a trademark of RARLAB).
 
-**Reliability**
-- MacRAR 1.3 crashed at launch on Macs set to a language other than Turkish (a duplicated entry in the English string table). 1.4 already fixed it; the build now refuses to compile if that ever happens again.
+Includes everything from 1.4.1: extracted files inherit the downloaded archive's quarantine flag (#1).
 
 **Requirements:** macOS 13+ (Apple Silicon and Intel). Creating RAR archives needs RARLAB's RAR for macOS (paid, 40-day trial); everything else is free.
 
