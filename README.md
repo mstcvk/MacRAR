@@ -154,6 +154,10 @@ Environment variables used for automated testing (no screen recording permission
 
 Neither project is affiliated with MacRAR. "WinRAR" and "RAR" are trademarks of their owner.
 
+## Author
+
+**Mesut Çevik** · [github.com/mstcvk](https://github.com/mstcvk)
+
 ## License
 
 The MacRAR source code is released under the [MIT License](LICENSE).

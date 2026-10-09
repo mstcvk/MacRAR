@@ -30,6 +30,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         buildMenu()
         launched = true
         scheduleDebugSnapshot()
+        if ProcessInfo.processInfo.environment["MACRAR_DEBUG_ABOUT"] != nil { showAbout(nil) }
         if let cmd = pendingCommand {
             NSApp.activate(ignoringOtherApps: true)
             runCommand(cmd)
@@ -312,6 +313,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Dialogs.info("Finder hızlı eylemleri yüklendi", "\(n) hızlı eylem kuruldu. Finder'da bir dosyaya sağ tıklayıp \"Hızlı Eylemler\" menüsünden kullanabilirsiniz.")
     }
 
+    // MARK: Hakkında
+
+    @objc func showAbout(_ sender: Any?) {
+        let credits = NSMutableAttributedString()
+        let para = NSMutableParagraphStyle(); para.alignment = .center
+        let base: [NSAttributedString.Key: Any] = [.font: NSFont.systemFont(ofSize: 12), .foregroundColor: NSColor.labelColor, .paragraphStyle: para]
+        credits.append(NSAttributedString(string: "Geliştirici: Mesut Çevik\n", attributes: base))
+        var link = base
+        link[.link] = URL(string: "https://github.com/mstcvk/MacRAR")!
+        link[.foregroundColor] = NSColor.linkColor
+        credits.append(NSAttributedString(string: "github.com/mstcvk/MacRAR", attributes: link))
+        credits.append(NSAttributedString(string: "\n\nRAR/UNRAR © Alexander Roshal (RARLAB)\n7-Zip © Igor Pavlov", attributes: [.font: NSFont.systemFont(ofSize: 10), .foregroundColor: NSColor.secondaryLabelColor, .paragraphStyle: para]))
+        NSApp.activate(ignoringOtherApps: true)
+        NSApp.orderFrontStandardAboutPanel(options: [
+            .credits: credits,
+            .applicationName: "MacRAR",
+            NSApplication.AboutPanelOptionKey(rawValue: "Copyright"): "© 2026 Mesut Çevik",
+        ])
+    }
+
     // MARK: Menü
 
     private func buildMenu() {
@@ -319,7 +340,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let appItem = NSMenuItem(); main.addItem(appItem)
         let app = NSMenu()
-        app.addItem(withTitle: "MacRAR Hakkında", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
+        app.addItem(withTitle: "MacRAR Hakkında", action: #selector(showAbout(_:)), keyEquivalent: "")
         app.addItem(.separator())
         app.addItem(withTitle: "RAR Dosyaları İçin Varsayılan Uygulama Yap", action: #selector(makeDefault(_:)), keyEquivalent: "")
         app.addItem(withTitle: "Tüm Arşivler (ZIP, 7z, TAR…) İçin Varsayılan Yap", action: #selector(makeDefaultForAll(_:)), keyEquivalent: "")

@@ -115,6 +115,10 @@ Otomatik test için ortam değişkenleri (ekran kaydı izni gerektirmez):
 - **RAR / UNRAR** © Alexander Roshal, RARLAB. `unrar` ücretsizdir; `rar` deneme sürümüdür. Bkz. [rarlab.com](https://www.rarlab.com).
 - **7-Zip** © Igor Pavlov, GNU LGPL (unRAR kısıtlamasıyla) ve bazı bölümler için BSD 3-clause lisansı. Bkz. [7-zip.org](https://www.7-zip.org).
 
+## Geliştirici
+
+**Mesut Çevik** · [github.com/mstcvk](https://github.com/mstcvk)
+
 ## Lisans
 
 MacRAR kaynak kodu [MIT Lisansı](LICENSE) ile yayımlanmıştır.
