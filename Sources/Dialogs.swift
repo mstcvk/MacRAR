@@ -8,7 +8,7 @@ enum Dialogs {
     static func activate() { NSApp.activate(ignoringOtherApps: true) }
 
     static func askPassword(archiveName: String, wrong: Bool = false) -> String? {
-        if let dbg = ProcessInfo.processInfo.environment["MACRAR_DEBUG_PASSWORD"], !wrong { return dbg }
+        if let dbg = ProcessInfo.processInfo.environment["MACRAR_DEBUG_PASSWORD"], !wrong { return dbg == "__cancel__" ? nil : dbg }
         activate()
         let alert = NSAlert()
         alert.messageText = wrong ? "Şifre hatalı" : "Şifre gerekli"

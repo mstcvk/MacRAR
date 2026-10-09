@@ -87,7 +87,7 @@ final class ArchiveWindowController: NSWindowController, NSWindowDelegate, NSMen
     private let outline = NSOutlineView()
     private let scroll = NSScrollView()
     private let statusLabel = NSTextField(labelWithString: "")
-    private let emptyLabel = NSTextField(wrappingLabelWithString: "Bir arşiv açmak için ⌘O kullanın\nveya bir .rar dosyasını bu pencereye sürükleyin.")
+    private let emptyLabel = NSTextField(wrappingLabelWithString: "Bir arşiv açmak için ⌘O kullanın\nveya bir arşiv dosyasını (RAR, ZIP, 7z…) bu pencereye sürükleyin.")
     private let promiseQueue: OperationQueue = {
         let q = OperationQueue(); q.maxConcurrentOperationCount = 1; return q
     }()
@@ -262,6 +262,13 @@ final class ArchiveWindowController: NSWindowController, NSWindowDelegate, NSMen
         outline.reloadData()
         if root.children.count == 1, let only = root.children.first, only.isDir {
             outline.expandItem(only)
+        }
+        if ProcessInfo.processInfo.environment["MACRAR_DEBUG_EXPAND"] != nil {
+            outline.expandItem(nil, expandChildren: true)
+        }
+        if let size = ProcessInfo.processInfo.environment["MACRAR_DEBUG_WINDOW"] {
+            let parts = size.split(separator: "x").compactMap { Double($0) }
+            if parts.count == 2 { window?.setContentSize(NSSize(width: parts[0], height: parts[1])) }
         }
         updateStatus()
         NSDocumentController.shared.noteNewRecentDocumentURL(URL(fileURLWithPath: path))

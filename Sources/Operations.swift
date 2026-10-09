@@ -75,6 +75,15 @@ enum Ops {
 
     // MARK: Çıkartma
 
+    /// Çıkartılacak öğeler arasında şifreli olan var mı? (names nil → tüm arşiv)
+    static func needsPassword(info: ArchiveInfo, names: [String]?) -> Bool {
+        if info.headersEncrypted { return true }
+        guard let names else { return info.hasEncryptedFiles }
+        return info.entries.contains { e in
+            e.encrypted && names.contains { n in e.name == n || e.name.hasPrefix(n + "/") }
+        }
+    }
+
     enum OverwriteArg { case overwrite, rename }
 
     static func extractStages(info: ArchiveInfo, names: [String]?, dest: String, password: String?, mode: OverwriteArg) -> [Stage] {
@@ -103,7 +112,7 @@ enum Ops {
     static func extract(info: ArchiveInfo, names: [String]?, dest: String, password: String?,
                         host: NSWindow?, quiet: Bool = false, completion: @escaping (Bool, String?) -> Void) {
         var pw = password
-        if info.hasEncryptedFiles, pw == nil {
+        if needsPassword(info: info, names: names), pw == nil {
             guard let p = Dialogs.askPassword(archiveName: name(info.path)) else { completion(false, nil); return }
             pw = p
         }
@@ -201,15 +210,41 @@ enum Ops {
             let alert = NSAlert()
             alert.messageText = "\"\(name(o.archivePath))\" zaten var"
             if o.format.supportsAppend {
-                alert.informativeText = "Dosyalar mevcut arşive eklensin mi, yoksa yeni bir arşiv mi oluşturulsun?"
-                alert.addButton(withTitle: "Mevcut Arşive Ekle")
-                alert.addButton(withTitle: "Yeni Arşiv Oluştur")
-                alert.addButton(withTitle: "İptal")
-                Dialogs.activate()
-                switch alert.runModal() {
-                case .alertFirstButtonReturn: break
-                case .alertSecondButtonReturn: o.archivePath = uniquePath(o.archivePath)
-                default: completion(false, o.archivePath); return
+                // Mevcut arşiv şifreli mi? (şifresiz listeleme denemesi)
+                var existingEncrypted = false
+                switch RarRunner.list(o.archivePath, password: nil) {
+                case .ok(let ex): existingEncrypted = ex.hasEncryptedFiles
+                case .wrongPassword: existingEncrypted = true
+                case .error: break
+                }
+                if existingEncrypted {
+                    alert.informativeText = "Aynı adlı mevcut arşiv şifreli. Yeni, şifresiz bir arşiv oluşturulsun mu, yoksa dosyalar şifreli arşive mi eklensin?"
+                    alert.addButton(withTitle: "Yeni Arşiv Oluştur")
+                    alert.addButton(withTitle: "Şifreli Arşive Ekle…")
+                    alert.addButton(withTitle: "İptal")
+                    Dialogs.activate()
+                    switch alert.runModal() {
+                    case .alertFirstButtonReturn:
+                        o.archivePath = uniquePath(o.archivePath)
+                    case .alertSecondButtonReturn:
+                        var pw: String? = nil
+                        guard let existing = listInteractive(archive: o.archivePath, password: &pw) else { completion(false, o.archivePath); return }
+                        add(info: existing, items: items, password: pw, host: host) { ok, _ in completion(ok, o.archivePath) }
+                        return
+                    default:
+                        completion(false, o.archivePath); return
+                    }
+                } else {
+                    alert.informativeText = "Yeni bir arşiv oluşturulsun mu, yoksa dosyalar mevcut arşive mi eklensin?"
+                    alert.addButton(withTitle: "Yeni Arşiv Oluştur")
+                    alert.addButton(withTitle: "Mevcut Arşive Ekle")
+                    alert.addButton(withTitle: "İptal")
+                    Dialogs.activate()
+                    switch alert.runModal() {
+                    case .alertFirstButtonReturn: o.archivePath = uniquePath(o.archivePath)
+                    case .alertSecondButtonReturn: break
+                    default: completion(false, o.archivePath); return
+                    }
                 }
             } else {
                 alert.informativeText = "Bu biçimde mevcut arşive ekleme yapılamaz. Yeni bir arşiv oluşturulsun mu?"

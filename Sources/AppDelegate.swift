@@ -46,12 +46,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func application(_ sender: NSApplication, openFiles filenames: [String]) {
+        if let log = ProcessInfo.processInfo.environment["MACRAR_DEBUG_LOG"] {
+            let line = "\(Date().timeIntervalSince1970) openFiles(\(filenames.count)): \(filenames.map { ($0 as NSString).lastPathComponent }) launched=\(launched) modal=\(NSApp.modalWindow != nil)\n"
+            if let h = FileHandle(forWritingAtPath: log) { h.seekToEndOfFile(); h.write(line.data(using: .utf8)!); h.closeFile() }
+            else { try? line.write(toFile: log, atomically: true, encoding: .utf8) }
+        }
+        // Finder'a hemen yanıt ver; dosyaları Apple olayı işleyicisinin dışında, modal pencere yokken işle
+        sender.reply(toOpenOrPrint: .success)
         if launched {
-            handleOpen(filenames)
+            scheduleOpen(filenames)
         } else {
             pendingFiles += filenames
         }
-        sender.reply(toOpenOrPrint: .success)
+    }
+
+    private var queuedFiles: [String] = []
+    private func scheduleOpen(_ files: [String]) {
+        queuedFiles += files
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { [weak self] in self?.flushQueuedFiles() }
+    }
+    private func flushQueuedFiles() {
+        guard !queuedFiles.isEmpty else { return }
+        if NSApp.modalWindow != nil {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in self?.flushQueuedFiles() }
+            return
+        }
+        let files = queuedFiles
+        queuedFiles = []
+        handleOpen(files)
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { !headless }
