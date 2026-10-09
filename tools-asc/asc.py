@@ -119,5 +119,29 @@ def attach():
     req("PATCH", f"/v1/appStoreVersions/{ver['id']}/relationships/build", {"data": {"type": "builds", "id": bs[0]["id"]}})
     print(f"✔ Build {bs[0]['attributes']['version']} sürüm {ver['attributes']['versionString']}'e bağlandı")
 
+def nextbuild():
+    """Bu sürüm numarası için bir sonraki build numarası (App Store'daki en büyük + 1)"""
+    ver = os.environ.get("APPSTORE_VERSION", "1.0")
+    bs = req("GET", f"/v1/builds?filter[app]={APP_ID}&filter[preReleaseVersion.version]={ver}&limit=200&fields[builds]=version")["data"]
+    nums = [int(b["attributes"]["version"]) for b in bs if b["attributes"]["version"].isdigit()]
+    print(max(nums, default=0) + 1)
+
+def wait_attach():
+    """Yüklenen build işlenene kadar bekler (en fazla 30 dk), sonra sürüme bağlar"""
+    want = os.environ.get("APPSTORE_BUILD")
+    for _ in range(60):
+        bs = req("GET", f"/v1/builds?filter[app]={APP_ID}&sort=-uploadedDate&limit=5&fields[builds]=version,processingState")["data"]
+        b = next((x for x in bs if x["attributes"]["version"] == want), None) if want else (bs[0] if bs else None)
+        state = b["attributes"]["processingState"] if b else "—"
+        print(f"  build {want}: {state}", flush=True)
+        if state == "VALID":
+            ver = mac_version()
+            req("PATCH", f"/v1/appStoreVersions/{ver['id']}/relationships/build", {"data": {"type": "builds", "id": b["id"]}})
+            print(f"✔ Build {want} sürüm {ver['attributes']['versionString']}'e bağlandı"); return
+        if state in ("INVALID", "FAILED"): raise SystemExit("✘ Apple build'i reddetti; App Store Connect'teki e-postaya bakın")
+        time.sleep(30)
+    raise SystemExit("Zaman aşımı: build hâlâ işleniyor; sonra `asc.py attach` çalıştırın")
+
 if __name__ == "__main__":
-    {"screenshots": screenshots, "review": review, "builds": builds, "attach": attach}[sys.argv[1]]()
+    {"screenshots": screenshots, "review": review, "builds": builds, "attach": attach,
+     "nextbuild": nextbuild, "wait-attach": wait_attach}[sys.argv[1]]()
