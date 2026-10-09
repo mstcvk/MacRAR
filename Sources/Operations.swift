@@ -113,16 +113,7 @@ enum Ops {
             pw = p
         }
         // Üzerine yazma kontrolü
-        let tops: [String]
-        if let names {
-            var seen = Set<String>()
-            tops = names.compactMap { n in
-                let t = n.split(separator: "/", maxSplits: 1).first.map(String.init) ?? n
-                return seen.insert(t).inserted ? t : nil
-            }
-        } else {
-            tops = info.topLevelNames
-        }
+        let tops = topLevelNames(info: info, names: names)
         let existing = tops.filter { FileManager.default.fileExists(atPath: (dest as NSString).appendingPathComponent($0)) }
         var mode: OverwriteArg = .overwrite
         if !existing.isEmpty {
@@ -140,7 +131,9 @@ enum Ops {
     private static func runExtract(info: ArchiveInfo, names: [String]?, dest: String, password: String?, mode: OverwriteArg,
                                    host: NSWindow?, count: Int?, quiet: Bool, completion: @escaping (Bool, String?) -> Void) {
         let stages = extractStages(info: info, names: names, dest: dest, password: password, mode: mode)
-        runJob(title: LF("Çıkartılıyor: %@", name(info.path)), stages: stages, host: host, totalFiles: count, stripPrefix: dest) { r in
+        let quarantine = Quarantine.value(of: info.path)
+        let started = Date()
+        func finish(_ r: RarResult) {
             if r.cancelled { completion(false, password); return }
             if r.wrongPassword {
                 guard let pw = Dialogs.askPassword(archiveName: name(info.path), wrong: true) else { completion(false, password); return }
@@ -156,6 +149,15 @@ enum Ops {
                 Dialogs.info(L("Çıkartma uyarılarla tamamlandı"), r.errorSummary)
             }
             completion(true, password)
+        }
+        runJob(title: LF("Çıkartılıyor: %@", name(info.path)), stages: stages, host: host, totalFiles: count, stripPrefix: dest) { r in
+            // Yarım kalan çıkartmalar dahil, yazılan her öğe arşivin karantinasını alır (sonuç işlenmeden, açılmadan önce)
+            guard let quarantine else { finish(r); return }
+            let tops = topLevelNames(info: info, names: names)
+            DispatchQueue.global(qos: .userInitiated).async {
+                Quarantine.apply(quarantine, dest: dest, tops: tops, since: started)
+                DispatchQueue.main.async { finish(r) }
+            }
         }
     }
 
@@ -355,6 +357,16 @@ enum Ops {
         return (ns.deletingLastPathComponent as NSString).appendingPathComponent(base)
     }
 
+    /// Çıkartılacak üst düzey adlar (names nil → tüm arşiv)
+    static func topLevelNames(info: ArchiveInfo, names: [String]?) -> [String] {
+        guard let names else { return info.topLevelNames }
+        var seen = Set<String>()
+        return names.compactMap { n in
+            let t = n.split(separator: "/", maxSplits: 1).first.map(String.init) ?? n
+            return seen.insert(t).inserted ? t : nil
+        }
+    }
+
     static func revealInFinder(_ path: String) {
         NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
     }
@@ -362,15 +374,7 @@ enum Ops {
     /// Çıkartma sonrası: çıkan üst düzey öğeleri Finder'da seçer (yoksa hedef klasörü)
     static func revealExtracted(info: ArchiveInfo, names: [String]?, dest: String) {
         guard Prefs.revealAfterExtract else { return }
-        let tops: [String]
-        if let names {
-            var seen = Set<String>()
-            tops = names.compactMap { n in
-                let t = n.split(separator: "/", maxSplits: 1).first.map(String.init) ?? n
-                return seen.insert(t).inserted ? t : nil
-            }
-        } else { tops = info.topLevelNames }
-        let urls = tops.map { URL(fileURLWithPath: (dest as NSString).appendingPathComponent($0)) }
+        let urls = topLevelNames(info: info, names: names).map { URL(fileURLWithPath: (dest as NSString).appendingPathComponent($0)) }
             .filter { FileManager.default.fileExists(atPath: $0.path) }
         if urls.isEmpty { revealInFinder(dest) } else { NSWorkspace.shared.activateFileViewerSelecting(Array(urls.prefix(50))) }
     }
