@@ -360,8 +360,8 @@ final class RarJob {
                 // Süreç ve handler artık gerekmez; döngüleri kır ki iş ve callback'ler serbest kalsın
                 proc.terminationHandler = nil
                 self.processes = []
-                DispatchQueue.main.async { [self] in
-                    keepAlive = nil
+                DispatchQueue.main.async {
+                    self.keepAlive = nil
                     completion(result)
                 }
             }
@@ -370,8 +370,8 @@ final class RarJob {
         keepAlive = self
         for p in procs {
             do { try p.run() } catch {
-                DispatchQueue.main.async { [self] in
-                    keepAlive = nil
+                DispatchQueue.main.async {
+                    self.keepAlive = nil
                     completion(RarResult(code: -1, output: LF("Çalıştırılamadı: %@", error.localizedDescription)))
                 }
                 return
