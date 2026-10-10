@@ -16,7 +16,13 @@ A WinRAR-style archive manager for macOS, built on 7-Zip.
 
 MacRAR is a native macOS archive manager that works the way WinRAR does on Windows: double-click an archive to browse it, right-click in Finder to extract or compress, and drag files straight out of the window. Archives are read, extracted and tested with the official `7zz` build of 7-Zip, which also handles RAR. Creating RAR archives needs RARLAB's own `rar` tool. MacRAR does not bundle it, but it walks you through installing your own copy.
 
-![MacRAR main window](docs/main-window-rar.png)
+| Browsing a RAR archive | Encrypted ZIP (lock column) |
+|---|---|
+| ![Main window](docs/main-window-rar.png) | ![Encrypted ZIP](docs/main-window-zip-encrypted.png) |
+
+| Create Archive dialog | Password prompt |
+|---|---|
+| ![Create Archive dialog](docs/compress-dialog.png) | ![Password prompt](docs/password-prompt.png) |
 
 Intro video: [English](https://youtu.be/yDB8AeCSBoQ) · [Turkish](https://youtu.be/3pT3mBTTk98)
 
@@ -156,7 +162,13 @@ Author: **Mesut Çevik** · [github.com/mstcvk](https://github.com/mstcvk)
 
 MacRAR, macOS için yerel bir arşiv yöneticisidir ve Windows'taki WinRAR gibi çalışır. Arşive çift tıklayarak içeriğine bakabilir, Finder'da sağ tıklayarak çıkartabilir ya da sıkıştırabilir, öğeleri pencereden doğrudan sürükleyerek dışarı çıkarabilirsiniz. Arşivler, 7-Zip'in resmi `7zz` sürümüyle okunur, çıkartılır ve test edilir; RAR arşivleri de bu motorla açılır. RAR arşivi oluşturmak için RARLAB'ın kendi `rar` aracı gerekir. MacRAR bu aracı paketlemez, ancak kendi kopyanızı kurmanız için adım adım yönlendirir.
 
-![MacRAR ana penceresi](docs/tr/main-window-rar.png)
+| RAR arşivi görüntüleme | Şifreli ZIP (kilit sütunu) |
+|---|---|
+| ![Ana pencere](docs/tr/main-window-rar.png) | ![Şifreli ZIP](docs/tr/main-window-zip-encrypted.png) |
+
+| Arşiv Oluştur penceresi | Şifre sorusu |
+|---|---|
+| ![Arşiv Oluştur](docs/tr/compress-dialog.png) | ![Şifre sorusu](docs/tr/password-prompt.png) |
 
 Tanıtım videosu: [İngilizce](https://youtu.be/yDB8AeCSBoQ) · [Türkçe](https://youtu.be/3pT3mBTTk98)
 
@@ -296,7 +308,13 @@ Geliştirici: **Mesut Çevik** · [github.com/mstcvk](https://github.com/mstcvk)
 
 MacRAR 是一款原生 macOS 归档管理器，使用方式与 Windows 上的 WinRAR 相似：双击归档即可浏览内容，在 Finder 中右键即可解压或压缩，还可以直接把文件从窗口拖出到 Finder 中。归档的读取、解压和测试由 7-Zip 官方的 `7zz` 版本完成，它同样支持 RAR。创建 RAR 归档需要 RARLAB 提供的 `rar` 工具；MacRAR 不附带该工具，但会引导你完成安装。
 
-![MacRAR 主窗口](docs/main-window-rar.png)
+| 浏览 RAR 归档 | 加密 ZIP（锁定列） |
+|---|---|
+| ![主窗口](docs/main-window-rar.png) | ![加密 ZIP](docs/main-window-zip-encrypted.png) |
+
+| 创建归档窗口 | 密码提示 |
+|---|---|
+| ![创建归档](docs/compress-dialog.png) | ![密码提示](docs/password-prompt.png) |
 
 演示视频：[英文](https://youtu.be/yDB8AeCSBoQ) · [土耳其语](https://youtu.be/3pT3mBTTk98)
 
