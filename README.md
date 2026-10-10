@@ -14,8 +14,8 @@
 </p>
 
 <p align="center">
-  <a href="https://youtu.be/3pT3mBTTk98"><img src="docs/video-poster.jpg" width="720" alt="MacRAR intro video on YouTube"></a><br>
-  <sub>▶ 1-minute intro video on YouTube (Turkish narration, subtitled)</sub>
+  <a href="https://youtu.be/yDB8AeCSBoQ"><img src="docs/video-poster-en.jpg" width="720" alt="MacRAR intro video on YouTube"></a><br>
+  <sub>▶ 1-minute intro video on YouTube · <a href="https://youtu.be/3pT3mBTTk98">Turkish version</a></sub>
 </p>
 
 ---

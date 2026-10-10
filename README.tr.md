@@ -8,7 +8,7 @@
 
 <p align="center">
   <a href="https://youtu.be/3pT3mBTTk98"><img src="docs/video-poster.jpg" width="720" alt="MacRAR tanıtım videosu (YouTube)"></a><br>
-  <sub>▶ 1 dakikalık tanıtım videosu (YouTube)</sub>
+  <sub>▶ 1 dakikalık tanıtım videosu (YouTube) · <a href="https://youtu.be/yDB8AeCSBoQ">İngilizcesi</a></sub>
 </p>
 
 ---
