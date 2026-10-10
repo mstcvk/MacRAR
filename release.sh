@@ -13,7 +13,8 @@
 set -e
 cd "$(dirname "$0")"
 APP="build/MacRAR.app"
-[[ -d "$APP" ]] || ./build.sh
+# Her zaman yeniden derle: eski bir build/ kopyası Info.plist'teki sürümden geride kalabilir (1.4.3'te yaşandı)
+./build.sh
 PROFILE="${PROFILE:-MacRAR}"
 if [[ -z "$IDENTITY" ]]; then
   IDENTITY=$(security find-identity -v -p codesigning | grep -o '"Developer ID Application: [^"]*"' | head -1 | tr -d '"')
