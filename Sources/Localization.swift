@@ -95,6 +95,7 @@ enum L10n {
             "%@ is currently in the “%@” folder. The Finder right-click menu and file associations only work when the app lives in the Applications folder.",
         "Uygulamalar Klasörüne Taşı": "Move to Applications", "Buradan Çalıştır": "Run from Here", "Bir daha sorma": "Don't ask again",
         "Uygulamalar klasörüne taşınamadı": "Could not move to the Applications folder",
+        "Uygulamalar klasöründe MacRAR dışında aynı adlı bir uygulama var": "Another app with the same name is already in the Applications folder",
         // RAR aracı / klasör izinleri / ad
         "RAR 5 (RAR aracı gerekir)": "RAR 5 (needs RAR tool)",
         "RARLAB'ın RAR aracını gerektirir; Oluştur'a basınca indirme adımları gösterilir.": "Needs RARLAB's RAR tool; pressing Create shows how to get it.",

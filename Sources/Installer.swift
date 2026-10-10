@@ -52,7 +52,13 @@ enum Installer {
     private static func move(from src: String) throws -> String {
         let fm = FileManager.default
         let dest = "/Applications/" + (src as NSString).lastPathComponent
-        if fm.fileExists(atPath: dest) { try fm.removeItem(atPath: dest) }   // eski sürümün üzerine yaz
+        if fm.fileExists(atPath: dest) {
+            // Yalnızca MacRAR'ın eski sürümü üzerine yazılır; aynı adlı başka bir uygulamaya dokunulmaz
+            guard Bundle(path: dest)?.bundleIdentifier == Bundle.main.bundleIdentifier else {
+                throw CocoaError(.fileWriteFileExists, userInfo: [NSLocalizedDescriptionKey: L("Uygulamalar klasöründe MacRAR dışında aynı adlı bir uygulama var")])
+            }
+            try fm.removeItem(atPath: dest)
+        }
         try fm.copyItem(atPath: src, toPath: dest)
         // Disk görüntüsü salt okunurdur; İndirilenler/Masaüstü'ndeki kopya çöpe gider (çalışan süreç etkilenmez)
         if !src.hasPrefix("/Volumes/") { try? fm.trashItem(at: URL(fileURLWithPath: src), resultingItemURL: nil) }

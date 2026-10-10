@@ -24,6 +24,13 @@ enum UpdateChecker {
         check(manual: false)
     }
 
+    /// API yanıtındaki bağlantılar yalnızca https ve GitHub alan adlarına açılır
+    private static func trusted(_ url: URL) -> URL? {
+        guard url.scheme == "https", let host = url.host?.lowercased() else { return nil }
+        let ok = host == "github.com" || host.hasSuffix(".github.com") || host == "objects.githubusercontent.com"
+        return ok ? url : nil
+    }
+
     /// Menüden: sonucu her durumda bildirir.
     static func check(manual: Bool) {
         var req = URLRequest(url: URL(string: "https://api.github.com/repos/\(repo)/releases/latest")!)
@@ -40,11 +47,11 @@ enum UpdateChecker {
                 }
                 UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: lastCheckKey)
                 let latest = tag.hasPrefix("v") ? String(tag.dropFirst()) : tag
-                let pageURL = (json["html_url"] as? String).flatMap(URL.init(string:)) ?? releasesPage
+                let pageURL = (json["html_url"] as? String).flatMap(URL.init(string:)).flatMap(trusted) ?? releasesPage
                 // "İndir" doğrudan DMG'yi indirsin; yoksa sürüm sayfası
                 let assets = (json["assets"] as? [[String: Any]]) ?? []
                 let dmgURL = assets.first { ($0["name"] as? String)?.lowercased().hasSuffix(".dmg") == true }
-                    .flatMap { $0["browser_download_url"] as? String }.flatMap(URL.init(string:))
+                    .flatMap { $0["browser_download_url"] as? String }.flatMap(URL.init(string:)).flatMap(trusted)
                 let notes = (json["body"] as? String) ?? ""
                 if isNewer(latest, than: currentVersion) {
                     if !manual, UserDefaults.standard.string(forKey: skipKey) == latest { return }

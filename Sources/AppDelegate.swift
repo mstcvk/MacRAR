@@ -43,8 +43,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var launched = false
     var headless: Bool { pendingCommand != nil }
 
-    static func isArchive(_ path: String) -> Bool { Formats.isArchive(path) }
-
     // MARK: Yaşam döngüsü
 
     /// Uygulama yalnızca bir Finder servisi için açıldıysa: iş bitince pencere yoksa kapanır
@@ -214,8 +212,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // Aynı dosya hem argüman hem de LaunchServices üzerinden gelebilir → tekilleştir
         var seen = Set<String>()
         let files = rawFiles.map { Self.resolved($0) }.filter { seen.insert($0).inserted }
-        let archives = files.filter { Self.isArchive($0) }
-        let others = files.filter { !Self.isArchive($0) }
+        let archives = files.filter { Formats.isArchive($0) }
+        let others = files.filter { !Formats.isArchive($0) }
         for a in archives { openArchive(a, reuse: nil) }
         if !others.isEmpty {
             compressWithDialog(items: others, host: nil) { [weak self] path in

@@ -257,7 +257,7 @@ enum RarRunner {
             var e = ArchiveEntry(name: name.hasSuffix("/") ? String(name.dropLast()) : name, isDirectory: isDir)
             e.size = Int64(block["Size"] ?? "") ?? 0
             e.packedSize = Int64(block["Packed Size"] ?? "") ?? 0
-            if e.size > 0, e.packedSize > 0 { e.ratio = "\(Int(Double(e.packedSize) * 100 / Double(e.size)))%" }
+            if !Formats.isTarCompressed(path), e.size > 0, e.packedSize > 0 { e.ratio = "\(Int(Double(e.packedSize) * 100 / Double(e.size)))%" }
             if let m = block["Modified"] { e.mtime = String(m.prefix(19)) }
             e.crc = block["CRC"] ?? ""
             e.encrypted = block["Encrypted"] == "+"
@@ -313,6 +313,7 @@ final class RarJob {
     private var output = ""
     private(set) var cancelled = false
     var onEvent: ((Event) -> Void)?   // ana kuyrukta çağrılır
+    private var keepAlive: RarJob?    // başlatıldığı andan tamamlanmasına kadar işi canlı tutar
 
     private static let verbs = ["Extracting", "Adding", "Testing", "Updating", "Creating", "Deleting", "Compressing", "Fresh", "Calculating"]
     private static let percentRegex = try! NSRegularExpression(pattern: #"(\d{1,3})%"#)
@@ -356,13 +357,21 @@ final class RarJob {
                 self.flushPartial()
                 for p in self.processes where p !== proc && p.isRunning { p.terminate() }
                 let result = RarResult(code: proc.terminationStatus, output: self.output, cancelled: self.cancelled)
-                DispatchQueue.main.async { completion(result) }
+                // Süreç ve handler artık gerekmez; döngüleri kır ki iş ve callback'ler serbest kalsın
+                proc.terminationHandler = nil
+                self.processes = []
+                DispatchQueue.main.async { [self] in
+                    keepAlive = nil
+                    completion(result)
+                }
             }
         }
         processes = procs
+        keepAlive = self
         for p in procs {
             do { try p.run() } catch {
-                DispatchQueue.main.async {
+                DispatchQueue.main.async { [self] in
+                    keepAlive = nil
                     completion(RarResult(code: -1, output: LF("Çalıştırılamadı: %@", error.localizedDescription)))
                 }
                 return
@@ -371,8 +380,11 @@ final class RarJob {
     }
 
     func cancel() {
-        cancelled = true
-        processes.forEach { if $0.isRunning { $0.terminate() } }
+        // Durum yalnızca iş kuyruğunda okunur/yazılır (termination handler de orada çalışır)
+        queue.async {
+            self.cancelled = true
+            self.processes.forEach { if $0.isRunning { $0.terminate() } }
+        }
     }
 
     private func consume(_ data: Data) {

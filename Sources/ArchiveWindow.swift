@@ -44,17 +44,22 @@ final class Node: NSObject {
         self.name = name; self.path = path; self.isDir = isDir
     }
 
-    var totalSize: Int64 {
-        if !isDir { return entry?.size ?? 0 }
-        return children.reduce(0) { $0 + $1.totalSize }
-    }
-    var totalPacked: Int64 {
-        if !isDir { return entry?.packedSize ?? 0 }
-        return children.reduce(0) { $0 + $1.totalPacked }
-    }
-    var containsEncrypted: Bool {
-        if !isDir { return entry?.encrypted ?? false }
-        return children.contains { $0.containsEncrypted }
+    /// Toplamlar `buildTree` içinde bir kez hesaplanır; ağaç oluşturulduktan sonra değişmez
+    private(set) var totalSize: Int64 = 0
+    private(set) var totalPacked: Int64 = 0
+    private(set) var containsEncrypted = false
+
+    func computeTotals() {
+        if !isDir {
+            totalSize = entry?.size ?? 0
+            totalPacked = entry?.packedSize ?? 0
+            containsEncrypted = entry?.encrypted ?? false
+            return
+        }
+        children.forEach { $0.computeTotals() }
+        totalSize = children.reduce(0) { $0 + $1.totalSize }
+        totalPacked = children.reduce(0) { $0 + $1.totalPacked }
+        containsEncrypted = children.contains { $0.containsEncrypted }
     }
 
     func sortRecursively(key: String = "name", ascending: Bool = true) {
@@ -103,6 +108,7 @@ final class Node: NSObject {
                 parent = node
             }
         }
+        root.computeTotals()
         root.sortRecursively()
         return root
     }
@@ -323,6 +329,7 @@ final class ArchiveWindowController: NSWindowController, NSWindowDelegate, NSMen
             return
         }
         self.info = info
+        previewCache.removeAll()
         root = Node.buildTree(info.entries)
         // buildTree zaten ada sırasına göre artan sıralar; varsayılan sıralamada tekrar sıralamaya gerek yok
         if sortKey != "name" || !sortAscending { root.sortRecursively(key: sortKey, ascending: sortAscending) }
@@ -574,16 +581,26 @@ final class ArchiveWindowController: NSWindowController, NSWindowDelegate, NSMen
         prepareQuickLook { QLPreviewPanel.shared()?.makeKeyAndOrderFront(nil) }
     }
 
+    /// Önizlemede açılmış dosyalar (ham yol → geçici dosya); aynı dosya tekrar çıkartılmaz
+    private var previewCache: [String: URL] = [:]
+
     private func prepareQuickLook(completion: @escaping () -> Void) {
         guard let info else { return }
         let files = selectedNodes().filter { !$0.isDir }
         guard !files.isEmpty else { return }
+        let missing = files.filter { previewCache[$0.path] == nil }
+        guard !missing.isEmpty else {
+            previewURLs = files.compactMap { previewCache[$0.path] }
+            completion()
+            return
+        }
         let tmp = TempDirs.make("ql")
-        Ops.extract(info: info, names: files.map { $0.path }, dest: tmp, password: password, host: window, quiet: true) { [weak self] ok, pw in
+        Ops.extract(info: info, names: missing.map { $0.path }, dest: tmp, password: password, host: window, quiet: true) { [weak self] ok, pw in
             guard let self else { return }
             self.password = pw ?? self.password
             guard ok else { return }
-            self.previewURLs = files.map { URL(fileURLWithPath: (tmp as NSString).appendingPathComponent($0.path)) }
+            for n in missing { self.previewCache[n.path] = URL(fileURLWithPath: (tmp as NSString).appendingPathComponent(n.path)) }
+            self.previewURLs = files.compactMap { self.previewCache[$0.path] }
             completion()
         }
     }
@@ -592,9 +609,18 @@ final class ArchiveWindowController: NSWindowController, NSWindowDelegate, NSMen
     override func beginPreviewPanelControl(_ panel: QLPreviewPanel!) { panel.dataSource = self; panel.delegate = self }
     override func endPreviewPanelControl(_ panel: QLPreviewPanel!) { panel.dataSource = nil; panel.delegate = nil }
 
+    private var filterWork: DispatchWorkItem?
+
     @objc func searchChanged(_ sender: NSSearchField) {
-        filterText = sender.stringValue.trimmingCharacters(in: .whitespaces)
-        applyFilter()
+        // Her tuşta değil, yazma durduktan kısa süre sonra süz: büyük arşivde ağaç taraması pahalıdır
+        filterWork?.cancel()
+        let text = sender.stringValue.trimmingCharacters(in: .whitespaces)
+        let work = DispatchWorkItem { [weak self] in
+            self?.filterText = text
+            self?.applyFilter()
+        }
+        filterWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: work)
     }
 
     // MARK: Doğrulama
@@ -738,7 +764,7 @@ extension ArchiveWindowController: NSOutlineViewDataSource, NSOutlineViewDelegat
         case Self.sizeCol:
             cell?.textField?.stringValue = Fmt.size(node.totalSize)
         case Self.packedCol:
-            cell?.textField?.stringValue = Fmt.size(node.totalPacked)
+            cell?.textField?.stringValue = info?.tarCompressed == true ? "" : Fmt.size(node.totalPacked)
         case Self.ratioCol:
             cell?.textField?.stringValue = e?.ratio ?? ""
         case Self.dateCol:
@@ -793,8 +819,8 @@ extension ArchiveWindowController: NSOutlineViewDataSource, NSOutlineViewDelegat
 
     func handleDrop(_ urls: [URL]) {
         let paths = urls.map { $0.path }
-        let archives = paths.filter { AppDelegate.isArchive($0) }
-        let others = paths.filter { !AppDelegate.isArchive($0) }
+        let archives = paths.filter { Formats.isArchive($0) }
+        let others = paths.filter { !Formats.isArchive($0) }
         if self.info != nil, !others.isEmpty {
             // Açık arşive bırakılan karışık seçim: arşiv dosyaları dahil hepsi eklenir (hiçbiri sessizce atlanmaz)
             DispatchQueue.main.async { [weak self] in self?.addItems(paths) }
