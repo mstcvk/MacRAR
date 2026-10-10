@@ -26,3 +26,6 @@ jobs:
 
       - name: Debug-hook build
         run: MACRAR_DEBUG_BUILD=1 zsh ./build.sh
+
+      - name: App Store build
+        run: zsh ./build.sh appstore
