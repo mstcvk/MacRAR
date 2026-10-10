@@ -92,7 +92,7 @@ jobs:
             rm -rf "$FX/fmt" && mkdir -p "$FX/fmt/in/dir"
             echo hello > "$FX/fmt/in/hello.txt"; echo a > "$FX/fmt/in/dir/a.txt"
             MACRAR_DEBUG_FORMAT="$f" run_limited 60 "$APP" --compress "$FX/fmt/in/hello.txt" "$FX/fmt/in/dir" || true
-            arc=$(find "$FX/fmt" -type f ! -name hello.txt ! -name a.txt | head -1)
+            arc=$(find "$FX/fmt" -type f ! -name hello.txt ! -name a.txt ! -name .DS_Store | head -1)
             if [ -n "$arc" ] && "$SEVENZ" t "$arc" >/dev/null 2>&1; then
               echo "CREATE OK   $f -> $(basename "$arc")"
             else
