@@ -11,7 +11,7 @@ permissions:
 jobs:
   build:
     runs-on: macos-latest
-    timeout-minutes: 30
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
 
@@ -29,3 +29,51 @@ jobs:
 
       - name: App Store build
         run: zsh ./build.sh appstore
+
+      - name: Runtime smoke test (debug build)
+        env:
+          MACRAR_NO_UPDATE_CHECK: "1"
+          MACRAR_NO_MOVE_PROMPT: "1"
+          MACRAR_DEBUG_PASSWORD: "test"
+          MACRAR_SNAPSHOT_DELAY: "8"
+        run: |
+          set -u
+          APP="$GITHUB_WORKSPACE/build/MacRAR.app/Contents/MacOS/MacRAR"
+          SEVENZ="$GITHUB_WORKSPACE/tools/7zz"
+          FX="$RUNNER_TEMP/fx"
+          mkdir -p "$FX/src/dir" "$FX/shots"
+          echo "hello" > "$FX/src/hello.txt"
+          echo "a" > "$FX/src/dir/a.txt"
+          (cd "$FX/src" && "$SEVENZ" a -tzip "$FX/plain.zip" hello.txt dir >/dev/null)
+          (cd "$FX/src" && "$SEVENZ" a -tzip -p"test" -mem=AES256 "$FX/enc.zip" hello.txt >/dev/null)
+          (cd "$FX/src" && tar -czf "$FX/dot.tar.gz" .)
+
+          # Bir süre sonra sınırla (macOS'ta timeout yok)
+          run_limited() {
+            local secs="$1"; shift
+            "$@" & local pid=$!
+            ( sleep "$secs"; kill "$pid" 2>/dev/null ) & local watchdog=$!
+            wait "$pid"; local rc=$?
+            kill "$watchdog" 2>/dev/null || true
+            return $rc
+          }
+
+          for a in plain.zip enc.zip dot.tar.gz; do
+            name="${a%%.*}"
+            MACRAR_SNAPSHOT="$FX/shots/$name" run_limited 90 "$APP" "$FX/$a" || echo "app exit $? for $a"
+          done
+          ls -la "$FX/shots"
+          test "$(ls "$FX/shots"/*.png 2>/dev/null | wc -l)" -ge 3 || { echo "SNAPSHOT EKSİK"; exit 1; }
+
+          # Issue #3: boş klasörde "Buraya Çıkart" uyarı vermeden dosyaları çıkarmalı
+          mkdir -p "$FX/xt" && cp "$FX/dot.tar.gz" "$FX/xt/"
+          run_limited 120 "$APP" --extract-here "$FX/xt/dot.tar.gz" || echo "extract exit $?"
+          if test -f "$FX/xt/dir/a.txt"; then echo "EXTRACT OK: dir/a.txt"; else echo "EXTRACT FAILED"; ls -laR "$FX/xt"; exit 1; fi
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: runtime-screenshots
+          path: ${{ runner.temp }}/fx/shots/
+          if-no-files-found: warn
