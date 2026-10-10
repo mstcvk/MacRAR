@@ -36,7 +36,7 @@ enum Ops {
         panel.show(on: host)
         job.start(stages: stages, cwd: cwd) { result in
             // Olay ve iptal callback'leri kopar; yoksa job ile panel birbirini canlı tutar
-            job.onEvent = nil
+            job.detach()
             panel.onCancel = nil
             panel.dismiss()
             completion(result)

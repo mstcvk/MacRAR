@@ -256,7 +256,7 @@ enum RarRunner {
             let isDir = block["Folder"] == "+" || attrs.hasPrefix("D")
             var e = ArchiveEntry(name: name.hasSuffix("/") ? String(name.dropLast()) : name, isDirectory: isDir)
             e.size = Int64(block["Size"] ?? "") ?? 0
-            e.packedSize = Int64(block["Packed Size"] ?? "") ?? 0
+            if !Formats.isTarCompressed(path) { e.packedSize = Int64(block["Packed Size"] ?? "") ?? 0 }
             if !Formats.isTarCompressed(path), e.size > 0, e.packedSize > 0 { e.ratio = "\(Int(Double(e.packedSize) * 100 / Double(e.size)))%" }
             if let m = block["Modified"] { e.mtime = String(m.prefix(19)) }
             e.crc = block["CRC"] ?? ""
@@ -370,6 +370,10 @@ final class RarJob {
         keepAlive = self
         for p in procs {
             do { try p.run() } catch {
+                // Okuma kaynağını kapat, başlamış süreçleri durdur; yoksa pipe ve süreçler açık kalır
+                handle.readabilityHandler = nil
+                procs.filter { $0.isRunning }.forEach { $0.terminate() }
+                processes = []
                 DispatchQueue.main.async {
                     self.keepAlive = nil
                     completion(RarResult(code: -1, output: LF("Çalıştırılamadı: %@", error.localizedDescription)))
@@ -377,6 +381,11 @@ final class RarJob {
                 return
             }
         }
+    }
+
+    /// Olay iletimini bırakır; yazma iş kuyruğunda yapılır, okuma ile yarışmaz
+    func detach() {
+        queue.async { self.onEvent = nil }
     }
 
     func cancel() {

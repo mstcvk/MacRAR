@@ -52,14 +52,23 @@ enum Installer {
     private static func move(from src: String) throws -> String {
         let fm = FileManager.default
         let dest = "/Applications/" + (src as NSString).lastPathComponent
-        if fm.fileExists(atPath: dest) {
-            // Yalnızca MacRAR'ın eski sürümü üzerine yazılır; aynı adlı başka bir uygulamaya dokunulmaz
-            guard Bundle(path: dest)?.bundleIdentifier == Bundle.main.bundleIdentifier else {
-                throw CocoaError(.fileWriteFileExists, userInfo: [NSLocalizedDescriptionKey: L("Uygulamalar klasöründe MacRAR dışında aynı adlı bir uygulama var")])
+        // Önce yan kopya: kopyalama başarısız olursa mevcut kurulum yerinde kalır
+        let staging = dest + ".incoming"
+        if fm.fileExists(atPath: staging) { try fm.removeItem(atPath: staging) }
+        do {
+            try fm.copyItem(atPath: src, toPath: staging)
+            if fm.fileExists(atPath: dest) {
+                // Yalnızca MacRAR'ın eski sürümü üzerine yazılır; aynı adlı başka bir uygulamaya dokunulmaz
+                guard let id = Bundle.main.bundleIdentifier, Bundle(path: dest)?.bundleIdentifier == id else {
+                    throw CocoaError(.fileWriteFileExists, userInfo: [NSLocalizedDescriptionKey: L("Uygulamalar klasöründe MacRAR dışında aynı adlı bir uygulama var")])
+                }
+                try fm.removeItem(atPath: dest)
             }
-            try fm.removeItem(atPath: dest)
+            try fm.moveItem(atPath: staging, toPath: dest)
+        } catch {
+            try? fm.removeItem(atPath: staging)
+            throw error
         }
-        try fm.copyItem(atPath: src, toPath: dest)
         // Disk görüntüsü salt okunurdur; İndirilenler/Masaüstü'ndeki kopya çöpe gider (çalışan süreç etkilenmez)
         if !src.hasPrefix("/Volumes/") { try? fm.trashItem(at: URL(fileURLWithPath: src), resultingItemURL: nil) }
         return dest

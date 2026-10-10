@@ -410,7 +410,7 @@ final class ArchiveWindowController: NSWindowController, NSWindowDelegate, NSMen
         } else if let f = filtered {
             parts.append(LF("%d eşleşme", f.count))
         } else {
-            parts.append(LF("%d dosya, %@ (paketli %@)", info.fileCount, Fmt.size(info.totalSize), Fmt.size(info.totalPacked)))
+            parts.append(LF("%d dosya, %@ (paketli %@)", info.fileCount, Fmt.size(info.totalSize), info.tarCompressed ? "—" : Fmt.size(info.totalPacked)))
         }
         var det = info.details
         if info.headersEncrypted, !det.contains("encrypted headers") { det += ", encrypted headers" }
@@ -538,7 +538,7 @@ final class ArchiveWindowController: NSWindowController, NSWindowDelegate, NSMen
         let fileSize = (attrs[.size] as? Int64) ?? 0
         let text = LF("Dosya: %@\nArşiv boyutu: %@\nBiçim: %@\nDosya sayısı: %d\nKlasör sayısı: %d\nToplam boyut: %@\nPaketli boyut: %@\nŞifreli: %@",
                       info.path, Fmt.size(fileSize), info.details, info.fileCount, info.entries.count - info.fileCount,
-                      Fmt.size(info.totalSize), Fmt.size(info.totalPacked), info.hasEncryptedFiles ? L("Evet") : L("Hayır"))
+                      Fmt.size(info.totalSize), info.tarCompressed ? "—" : Fmt.size(info.totalPacked), info.hasEncryptedFiles ? L("Evet") : L("Hayır"))
         Dialogs.info((info.path as NSString).lastPathComponent, text)
     }
 
@@ -599,7 +599,10 @@ final class ArchiveWindowController: NSWindowController, NSWindowDelegate, NSMen
             guard let self else { return }
             self.password = pw ?? self.password
             guard ok else { return }
-            for n in missing { self.previewCache[n.path] = URL(fileURLWithPath: (tmp as NSString).appendingPathComponent(n.path)) }
+            for n in missing {
+                let url = URL(fileURLWithPath: (tmp as NSString).appendingPathComponent(n.path))
+                if FileManager.default.fileExists(atPath: url.path) { self.previewCache[n.path] = url }
+            }
             self.previewURLs = files.compactMap { self.previewCache[$0.path] }
             completion()
         }
