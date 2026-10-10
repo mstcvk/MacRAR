@@ -51,6 +51,9 @@ echo 'print(L10n.en.count)' > "$BUILD/obj/main.swift"
 swiftc -swift-version 5 -module-name L10nCheck Sources/Localization.swift "$BUILD/obj/main.swift" -o "$BUILD/obj/l10n-check" 2>/dev/null
 "$BUILD/obj/l10n-check" >/dev/null 2>&1 || { echo "✘ Sources/Localization.swift: İngilizce tabloda yinelenen anahtar var"; exit 1; }
 
+echo "▸ Birim testleri (tests/run.sh)"
+sh tests/run.sh
+
 echo "▸ Swift derleniyor (arm64 + x86_64)"
 for arch in arm64 x86_64; do
   swiftc -O -swift-version 5 -target $arch-apple-macos13.0 "${SWIFT_FLAGS[@]}" \

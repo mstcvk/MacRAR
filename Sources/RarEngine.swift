@@ -40,11 +40,13 @@ struct ArchiveInfo {
     var topLevelNames: [String] {
         var seen = Set<String>(); var out: [String] = []
         for e in entries {
-            let top = e.name.split(separator: "/", maxSplits: 1, omittingEmptySubsequences: true).first.map(String.init) ?? e.name
-            if seen.insert(top).inserted { out.append(top) }
+            guard let top = ArchivePath.topLevel(e.name), seen.insert(top).inserted else { continue }
+            out.append(top)
         }
         return out
     }
+    /// ".." veya mutlak yol içeren girdi var mı; varsa çıkartma reddedilir
+    var hasUnsafePaths: Bool { entries.contains { ArchivePath.safeComponents($0.name) == nil } }
     /// Dosya ekleme / silme desteklenir mi?
     var supportsModification: Bool {
         if tarCompressed { return false }

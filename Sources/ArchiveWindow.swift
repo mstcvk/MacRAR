@@ -34,7 +34,8 @@ final class EmptyStateView: NSView {
 
 final class Node: NSObject {
     let name: String
-    let path: String
+    let path: String        // 7zz'ye verilen ham yol; seçim, çıkartma ve silme bunu kullanır
+    var key = ""            // normalize yol ("./" yok); filtre ve görüntüleme için
     let isDir: Bool
     var entry: ArchiveEntry?
     var children: [Node] = []
@@ -83,28 +84,25 @@ final class Node: NSObject {
 
     static func buildTree(_ entries: [ArchiveEntry]) -> Node {
         let root = Node(name: "", path: "", isDir: true)
-        var map: [String: Node] = ["": root]
-        func ensure(_ path: String) -> Node {
-            if let n = map[path] { return n }
-            let parentPath = (path as NSString).deletingLastPathComponent
-            let parent = ensure(parentPath)
-            let n = Node(name: (path as NSString).lastPathComponent, path: path, isDir: true)
-            n.parent = parent
-            parent.children.append(n)
-            map[path] = n
-            return n
-        }
+        var map: [String: Node] = [:]
         for e in entries {
-            let clean = e.name.hasSuffix("/") ? String(e.name.dropLast()) : e.name
-            if e.isDirectory {
-                ensure(clean).entry = e
-            } else {
-                let parent = ensure((clean as NSString).deletingLastPathComponent)
-                let n = Node(name: (clean as NSString).lastPathComponent, path: clean, isDir: false)
-                n.entry = e
-                n.parent = parent
-                parent.children.append(n)
-                map[clean] = n
+            // ".." ve mutlak yollu girdiler ağaca alınmaz; bunları içeren arşiv zaten çıkartılmaz
+            guard let levels = ArchivePath.levels(e.name), !levels.isEmpty else { continue }
+            var parent = root
+            for (i, lv) in levels.enumerated() {
+                let node: Node
+                if let existing = map[lv.key] {
+                    node = existing
+                } else {
+                    let isLast = i == levels.count - 1
+                    node = Node(name: lv.name, path: lv.path, isDir: !isLast || e.isDirectory)
+                    node.key = lv.key
+                    node.parent = parent
+                    parent.children.append(node)
+                    map[lv.key] = node
+                }
+                if i == levels.count - 1 { node.entry = e }
+                parent = node
             }
         }
         root.sortRecursively()
@@ -379,7 +377,7 @@ final class ArchiveWindowController: NSWindowController, NSWindowDelegate, NSMen
         } else {
             var all: [Node] = []
             root.flatten(into: &all)
-            filtered = all.filter { $0.path.localizedCaseInsensitiveContains(filterText) }
+            filtered = all.filter { $0.key.localizedCaseInsensitiveContains(filterText) }
                 .sorted { Node.compare($0, $1, key: sortKey, ascending: sortAscending) }
         }
         outline.reloadData()
@@ -734,7 +732,7 @@ extension ArchiveWindowController: NSOutlineViewDataSource, NSOutlineViewDelegat
         let e = node.entry
         switch id {
         case Self.nameCol:
-            cell?.textField?.stringValue = filtered != nil ? node.path : node.name
+            cell?.textField?.stringValue = filtered != nil ? node.key : node.name
             cell?.imageView?.image = icon(for: node)
         case Self.sizeCol:
             cell?.textField?.stringValue = Fmt.size(node.totalSize)
