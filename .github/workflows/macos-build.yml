@@ -1,0 +1,28 @@
+name: macOS build
+
+on:
+  push:
+    branches: [audit/full-project-review]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Unit tests
+        run: sh tests/run.sh
+
+      - name: Fetch 7-Zip (SHA-256 verified)
+        run: zsh ./fetch-tools.sh
+
+      - name: Release build
+        run: zsh ./build.sh
+
+      - name: Debug-hook build
+        run: MACRAR_DEBUG_BUILD=1 zsh ./build.sh
