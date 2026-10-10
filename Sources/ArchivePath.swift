@@ -12,12 +12,21 @@ enum ArchivePath {
     /// ad nil döner: arşivin dışındaki bir yere yazılabileceği için bu girdiler yerel işlemlere girmez.
     static func safeComponents(_ raw: String) -> [String]? {
         if raw.hasPrefix("/") { return nil }
+        // Windows'ta üretilmiş bir arşivde ayırıcı "\" olabilir; ".." her iki ayırıcıyla da reddedilir
+        if raw.split(whereSeparator: { $0 == "/" || $0 == "\\" }).contains("..") { return nil }
         var out: [String] = []
-        for part in raw.split(separator: "/") {
-            if part == ".." { return nil }
-            if part != "." { out.append(String(part)) }
-        }
+        for part in raw.split(separator: "/") where part != "." { out.append(String(part)) }
         return out
+    }
+
+    /// `path`, `dirs` içindeki bir klasörün altındaysa true (klasör sınırı "/" ile belirlenir, önek ile değil)
+    static func isInsideDir(_ path: String, of dirs: Set<String>) -> Bool {
+        var from = path.startIndex
+        while let slash = path[from...].firstIndex(of: "/") {
+            if dirs.contains(String(path[..<slash])) { return true }
+            from = path.index(after: slash)
+        }
+        return false
     }
 
     /// Üst düzey ad. Arşiv kökündeki girdi ("./") ve güvenli olmayan yollar için nil.

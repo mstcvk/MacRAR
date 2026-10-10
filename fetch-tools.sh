@@ -1,5 +1,5 @@
 #!/bin/zsh
-# Downloads the 7-Zip command-line engine (7zz, universal) from 7-zip.org into tools/.
+# Downloads the 7-Zip command-line engine (7zz, universal) from the official 7-Zip GitHub releases (ip7z/7zip) into tools/.
 # RARLAB's rar/unrar are not bundled any more (rar may not be redistributed); RAR archives are read by 7-Zip.
 set -e
 cd "$(dirname "$0")"

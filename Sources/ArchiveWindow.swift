@@ -39,7 +39,6 @@ final class Node: NSObject {
     let isDir: Bool
     var entry: ArchiveEntry?
     var children: [Node] = []
-    weak var parent: Node?
 
     init(name: String, path: String, isDir: Bool) {
         self.name = name; self.path = path; self.isDir = isDir
@@ -97,7 +96,6 @@ final class Node: NSObject {
                     let isLast = i == levels.count - 1
                     node = Node(name: lv.name, path: lv.path, isDir: !isLast || e.isDirectory)
                     node.key = lv.key
-                    node.parent = parent
                     parent.children.append(node)
                     map[lv.key] = node
                 }
@@ -326,7 +324,8 @@ final class ArchiveWindowController: NSWindowController, NSWindowDelegate, NSMen
         }
         self.info = info
         root = Node.buildTree(info.entries)
-        root.sortRecursively(key: sortKey, ascending: sortAscending)
+        // buildTree zaten ada sırasına göre artan sıralar; varsayılan sıralamada tekrar sıralamaya gerek yok
+        if sortKey != "name" || !sortAscending { root.sortRecursively(key: sortKey, ascending: sortAscending) }
         applyFilter()
         window?.title = (path as NSString).lastPathComponent
         window?.subtitle = AppInfo.abbreviate((path as NSString).deletingLastPathComponent)
@@ -422,8 +421,8 @@ final class ArchiveWindowController: NSWindowController, NSWindowDelegate, NSMen
     private func selectedPaths() -> [String] { Self.paths(for: selectedNodes()) }
 
     private static func paths(for nodes: [Node]) -> [String] {
-        let dirs = nodes.filter { $0.isDir }.map { $0.path + "/" }
-        return nodes.filter { n in !dirs.contains { n.path.hasPrefix($0) } }.map { $0.path }
+        let dirs = Set(nodes.filter { $0.isDir }.map { $0.path })
+        return nodes.filter { !ArchivePath.isInsideDir($0.path, of: dirs) }.map { $0.path }
     }
 
     // MARK: Eylemler
@@ -590,10 +589,6 @@ final class ArchiveWindowController: NSWindowController, NSWindowDelegate, NSMen
     @objc func searchChanged(_ sender: NSSearchField) {
         filterText = sender.stringValue.trimmingCharacters(in: .whitespaces)
         applyFilter()
-    }
-
-    @objc func selectAllItems(_ sender: Any?) {
-        outline.selectAll(nil)
     }
 
     // MARK: Doğrulama

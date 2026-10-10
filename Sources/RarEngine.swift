@@ -16,11 +16,6 @@ struct ArchiveEntry {
     var mtime: String = ""
     var crc: String = ""
     var encrypted: Bool = false
-    var attributes: String = ""
-    var compression: String = ""
-
-    var displayName: String { (name as NSString).lastPathComponent }
-    var parentPath: String { (name as NSString).deletingLastPathComponent }
 }
 
 struct ArchiveInfo {
@@ -33,7 +28,6 @@ struct ArchiveInfo {
     var tarCompressed: Bool { Formats.isTarCompressed(path) }
 
     var hasEncryptedFiles: Bool { headersEncrypted || entries.contains { $0.encrypted } }
-    var isSolid: Bool { details.contains("solid") }
     var fileCount: Int { entries.filter { !$0.isDirectory }.count }
     var totalSize: Int64 { entries.reduce(0) { $0 + $1.size } }
     var totalPacked: Int64 { entries.reduce(0) { $0 + $1.packedSize } }
@@ -147,12 +141,6 @@ enum RarRunner {
         }
     }
 
-    /// (eski) unrar şifre argümanı: "-p-" = şifre sorma
-    static func passwordArg(_ pw: String?, encryptHeaders: Bool = false) -> String {
-        guard let pw, !pw.isEmpty else { return "-p-" }
-        return (encryptHeaders ? "-hp" : "-p") + pw
-    }
-
     /// rar (a / d) için şifre argümanları. DİKKAT: rar, "-p-" verilince "-" karakterini şifre olarak kullanır;
     /// bu yüzden şifre yoksa hiçbir anahtar verilmez.
     static func rarPasswordArgs(_ pw: String?, encryptHeaders: Bool = false) -> [String] {
@@ -177,11 +165,6 @@ enum RarRunner {
         if let cwd { p.currentDirectoryURL = URL(fileURLWithPath: cwd) }
         p.standardInput = FileHandle.nullDevice
         return p
-    }
-
-    /// Eşzamanlı çalıştırır, tüm çıktıyı toplar.
-    static func run(_ tool: RarTool, _ args: [String], cwd: String? = nil) -> RarResult {
-        runStages([(tool, args)], cwd: cwd)
     }
 
     /// Birbirine borulanmış aşamaları eşzamanlı çalıştırır; son aşamanın çıktısı ve çıkış kodu döner.
@@ -278,8 +261,6 @@ enum RarRunner {
             if let m = block["Modified"] { e.mtime = String(m.prefix(19)) }
             e.crc = block["CRC"] ?? ""
             e.encrypted = block["Encrypted"] == "+"
-            e.attributes = attrs
-            e.compression = block["Method"] ?? ""
             entries.append(e)
         }
         for raw in entryLines {
@@ -338,10 +319,6 @@ final class RarJob {
     private static let percentHeadRegex = try! NSRegularExpression(pattern: #"^\s*(\d{1,3})%"#)
     private static let tailRegex = try! NSRegularExpression(pattern: #"\s*(\d{1,3}%|OK|Failed|CRC failed)\s*$"#)
     private static let sevenNameRegex = try! NSRegularExpression(pattern: #"(?:^|\s)([-+TU])\s(\S.*)$"#)
-
-    func start(_ tool: RarTool, _ args: [String], cwd: String? = nil, completion: @escaping (RarResult) -> Void) {
-        start(stages: [(tool, args)], cwd: cwd, completion: completion)
-    }
 
     /// Aşamalar birbirine borulanır; yalnızca son aşamanın çıktısı izlenir.
     func start(stages: [Stage], cwd: String? = nil, completion: @escaping (RarResult) -> Void) {

@@ -11,7 +11,8 @@ export APPSTORE_VERSION="${APPSTORE_VERSION:-1.0}"
 UPLOAD=1; [[ "$1" == "--no-upload" ]] && UPLOAD=0
 if [[ -z "$APPSTORE_BUILD" ]]; then
   if [[ -f signing/asc.json ]]; then
-    export APPSTORE_BUILD=$(python3 tools-asc/asc.py nextbuild)
+    APPSTORE_BUILD=$(python3 tools-asc/asc.py nextbuild)
+    export APPSTORE_BUILD
   else
     export APPSTORE_BUILD=1
   fi
@@ -45,7 +46,12 @@ KEYID=$(python3 -c 'import json;print(json.load(open("signing/asc.json"))["key_i
 ISSUER=$(python3 -c 'import json;print(json.load(open("signing/asc.json"))["issuer"])')
 APPLEID=$(python3 -c 'import json;print(json.load(open("signing/asc.json"))["app_id"])')
 echo "▸ App Store Connect'e yükleniyor"
-xcrun altool --upload-package "$PKG" --type macos --apple-id "$APPLEID" --bundle-id com.mesut.easymacarchiver \
-  --bundle-version "$BUILDNUM" --bundle-short-version-string "$VERSION" --apiKey "$KEYID" --apiIssuer "$ISSUER" 2>&1 | grep -E "UPLOAD SUCCEEDED|ERROR|error" || true
+set +e
+UPLOAD_LOG=$(xcrun altool --upload-package "$PKG" --type macos --apple-id "$APPLEID" --bundle-id com.mesut.easymacarchiver \
+  --bundle-version "$BUILDNUM" --bundle-short-version-string "$VERSION" --apiKey "$KEYID" --apiIssuer "$ISSUER" 2>&1)
+UPLOAD_RC=$?
+set -e
+echo "$UPLOAD_LOG" | grep -E "UPLOAD SUCCEEDED|ERROR|error" || true
+[[ $UPLOAD_RC -eq 0 ]] || { echo "✘ App Store Connect yüklemesi başarısız"; exit 1; }
 echo "▸ Apple'ın işlemesi bekleniyor (genellikle 5-15 dk)"
 APPSTORE_BUILD=$BUILDNUM python3 tools-asc/asc.py wait-attach

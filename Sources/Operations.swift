@@ -93,12 +93,12 @@ enum Ops {
     static func extractStages(info: ArchiveInfo, names: [String]?, dest: String, password: String?, mode: OverwriteArg) -> [Stage] {
         let ow = mode == .overwrite ? "-aoa" : (mode == .rename ? "-aou" : "-aos")
         if info.tarCompressed {
-            var inner = ["x", "-si", "-ttar", "-y", "-bb1", ow, "-o" + dest]
+            var inner = ["x", "-spd", "-si", "-ttar", "-y", "-bb1", ow, "-o" + dest]
             if let names { inner += ["--"] + names }
             return [(.sevenZip, ["x", "-so", RarRunner.passwordArg7z(password), "--", info.path]),
                     (.sevenZip, inner)]
         }
-        var args = ["x", "-y", "-bsp1", "-bb1", ow, RarRunner.passwordArg7z(password), "-o" + dest, "--", info.path]
+        var args = ["x", "-spd", "-y", "-bsp1", "-bb1", ow, RarRunner.passwordArg7z(password), "-o" + dest, "--", info.path]
         if let names { args += names }
         return [(.sevenZip, args)]
     }
@@ -112,7 +112,7 @@ enum Ops {
         }
         guard FolderAccess.ensure(FolderAccess.existingAncestor(of: dest), write: true) else { completion(false, password); return }
         var pw = password
-        if needsPassword(info: info, names: names), pw == nil {
+        if pw == nil, needsPassword(info: info, names: names) {
             guard let p = Dialogs.askPassword(archiveName: name(info.path)) else { completion(false, nil); return }
             pw = p
         }
@@ -265,18 +265,15 @@ enum Ops {
         guard index < steps.count else { completion(true, archive); return }
         let step = steps[index]
         let suffix = steps.count > 1 ? " (\(index + 1)/\(steps.count))" : ""
-        runJob(title: "\(L(step.title)): \(name(archive))\(suffix)", tool: step.tool, args: step.args, cwd: cwd, host: host, totalFiles: nil) { r in
-            step.cleanup?()
-            if r.cancelled {
-                steps[(index + 1)...].forEach { $0.cleanup?() }
-                completion(false, archive); return
-            }
+        runJob(title: "\(step.title): \(name(archive))\(suffix)", tool: step.tool, args: step.args, cwd: cwd, host: host, totalFiles: nil) { r in
+            // Başarısız ya da iptal edilen adımda geçici tar silinmez: -sdel ile kaynaklar silinmiş olabilir, tar tek kopya olabilir
+            if r.cancelled { completion(false, archive); return }
             if !r.ok {
-                steps[(index + 1)...].forEach { $0.cleanup?() }
                 Dialogs.error(L("Sıkıştırma başarısız"), r.errorSummary, details: r.output)
                 completion(false, archive)
                 return
             }
+            step.cleanup?()
             runSteps(steps, index: index + 1, archive: archive, cwd: cwd, host: host, completion: completion)
         }
     }
@@ -333,7 +330,7 @@ enum Ops {
         case .rar:
             stages = [(.rar, ["d", "-y"] + RarRunner.rarPasswordArgs(pw) + ["--", info.path] + names)]
         case .other:
-            stages = [(.sevenZip, ["d", "-y", "-bsp1", "-bb1", RarRunner.passwordArg7z(pw), "--", info.path] + names)]
+            stages = [(.sevenZip, ["d", "-spd", "-y", "-bsp1", "-bb1", RarRunner.passwordArg7z(pw), "--", info.path] + names)]
         }
         runJob(title: LF("Siliniyor: %@", name(info.path)), stages: stages, host: host, totalFiles: nil) { r in
             if r.cancelled { completion(false, pw); return }

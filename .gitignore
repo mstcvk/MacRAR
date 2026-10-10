@@ -1,6 +1,5 @@
 build/
 tools/
 .DS_Store
-*.xcuserstate
 dist/
 signing/

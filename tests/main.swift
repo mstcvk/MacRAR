@@ -79,6 +79,16 @@ expect(sub?.children.first?.path, "./dir/sub/b.txt", "tree: nested file raw path
 expect(sub?.children.first?.key, "dir/sub/b.txt", "tree: nested file normalized key")
 expect(dir?.totalSize, 8, "tree: sizes aggregate")
 
+// Windows ayırıcılı ".." ve klasör sınırı
+expect(ArchivePath.safeComponents("..\\x"), nil, "safe: backslash .. rejected")
+expect(ArchivePath.safeComponents("dir\\..\\x"), nil, "safe: inner backslash .. rejected")
+expect(ArchivePath.safeComponents("a\\b"), ["a\\b"], "safe: backslash inside a name kept")
+expect(ArchivePath.isInsideDir("a/b", of: ["a"]), true, "inside: child of dir")
+expect(ArchivePath.isInsideDir("ab", of: ["a"]), false, "inside: prefix without boundary")
+expect(ArchivePath.isInsideDir("a", of: ["a"]), false, "inside: dir is not inside itself")
+expect(ArchivePath.isInsideDir("./dir/a.txt", of: ["./dir"]), true, "inside: raw ./ prefix")
+expect(ArchivePath.isInsideDir("a/b/c", of: ["a/b"]), true, "inside: nested")
+
 if failures > 0 {
     print("\(failures) of \(checks) checks FAILED")
     exit(1)
