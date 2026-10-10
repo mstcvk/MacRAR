@@ -106,16 +106,21 @@ enum Ops {
     /// names: nil ise tüm arşiv. completion(success, kullanılan şifre)
     static func extract(info: ArchiveInfo, names: [String]?, dest: String, password: String?,
                         host: NSWindow?, quiet: Bool = false, completion: @escaping (Bool, String?) -> Void) {
+        guard !info.hasUnsafePaths else {
+            Dialogs.error(L("Çıkartma reddedildi"), L("Arşivde güvenli olmayan yollar var (../ veya mutlak yol). Bu arşiv çıkartılmadı."))
+            completion(false, password); return
+        }
         guard FolderAccess.ensure(FolderAccess.existingAncestor(of: dest), write: true) else { completion(false, password); return }
         var pw = password
         if needsPassword(info: info, names: names), pw == nil {
             guard let p = Dialogs.askPassword(archiveName: name(info.path)) else { completion(false, nil); return }
             pw = p
         }
-        // Üzerine yazma kontrolü
+        // Üzerine yazma kontrolü. Sembolik bağ izlenmez: kırık bir bağ da hedefte çakışmadır.
         let tops = topLevelNames(info: info, names: names)
-        let existing = tops.filter { FileManager.default.fileExists(atPath: (dest as NSString).appendingPathComponent($0)) }
-        var mode: OverwriteArg = .overwrite
+        let existing = tops.filter { entryExists((dest as NSString).appendingPathComponent($0)) }
+        // Denetim kaçırırsa (denetim ile çıkartma arasında oluşan öğe) üzerine yazmak yerine yeniden adlandır
+        var mode: OverwriteArg = .rename
         if !existing.isEmpty {
             switch Dialogs.askOverwrite(existing: existing, dest: dest) {
             case .overwrite: mode = .overwrite
@@ -362,9 +367,14 @@ enum Ops {
         guard let names else { return info.topLevelNames }
         var seen = Set<String>()
         return names.compactMap { n in
-            let t = n.split(separator: "/", maxSplits: 1).first.map(String.init) ?? n
-            return seen.insert(t).inserted ? t : nil
+            guard let t = ArchivePath.topLevel(n), seen.insert(t).inserted else { return nil }
+            return t
         }
+    }
+
+    private static func entryExists(_ path: String) -> Bool {
+        var st = stat()
+        return lstat(path, &st) == 0
     }
 
     static func revealInFinder(_ path: String) {
