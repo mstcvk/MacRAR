@@ -43,8 +43,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var launched = false
     var headless: Bool { pendingCommand != nil }
 
-    static func isArchive(_ path: String) -> Bool { Formats.isArchive(path) }
-
     // MARK: Yaşam döngüsü
 
     /// Uygulama yalnızca bir Finder servisi için açıldıysa: iş bitince pencere yoksa kapanır
@@ -62,6 +60,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if !isDefaultLaunch, pendingFiles.isEmpty, pendingCommand == nil { launchedForService = true }
         #endif
         scheduleDebugSnapshot()
+        #if DEBUG
         if ProcessInfo.processInfo.environment["MACRAR_DEBUG_ABOUT"] != nil { showAbout(nil) }
         if ProcessInfo.processInfo.environment["MACRAR_DEBUG_PREFS"] != nil { showPreferences(nil) }
         if let e = ProcessInfo.processInfo.environment["MACRAR_DEBUG_ASSOC_APPLY"] {
@@ -70,7 +69,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
             return
         }
-        #if !APPSTORE
+        #endif
+        #if !APPSTORE && DEBUG
         if let p = ProcessInfo.processInfo.environment["MACRAR_DEBUG_RARINSTALL"] {
             do { try RarTools.install(from: URL(fileURLWithPath: p)); print("RAR kuruldu:", RarTools.version ?? "?", RarTools.installDir) }
             catch { print("RAR kurulamadı:", error.localizedDescription) }
@@ -105,10 +105,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         DispatchQueue.main.asyncAfter(deadline: .now() + 3) { if Prefs.checkUpdates { UpdateChecker.checkAutomatically() } }
         #endif
         // İlk açılışta dosya ilişkilendirme önerisi (yalnızca Uygulamalar klasöründen çalışırken; şifre sorusu vb. açıksa bekler)
-        if Bundle.main.bundlePath.hasPrefix("/Applications/") || ProcessInfo.processInfo.environment["MACRAR_DEBUG_ASSOC"] != nil {
+        #if DEBUG
+        let forceAssoc = ProcessInfo.processInfo.environment["MACRAR_DEBUG_ASSOC"] != nil
+        #else
+        let forceAssoc = false
+        #endif
+        if Bundle.main.bundlePath.hasPrefix("/Applications/") || forceAssoc {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
                 Dialogs.whenIdle {
-                    if ProcessInfo.processInfo.environment["MACRAR_DEBUG_ASSOC"] != nil { Associations.show(firstLaunch: true) }
+                    if forceAssoc { Associations.show(firstLaunch: true) }
                     else { Associations.promptIfFirstLaunch() }
                 }
             }
@@ -142,11 +147,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     func application(_ sender: NSApplication, openFiles filenames: [String]) {
+        #if DEBUG
         if let log = ProcessInfo.processInfo.environment["MACRAR_DEBUG_LOG"] {
             let line = "\(Date().timeIntervalSince1970) openFiles(\(filenames.count)): \(filenames.map { ($0 as NSString).lastPathComponent }) launched=\(launched) modal=\(NSApp.modalWindow != nil)\n"
             if let h = FileHandle(forWritingAtPath: log) { h.seekToEndOfFile(); h.write(line.data(using: .utf8)!); h.closeFile() }
             else { try? line.write(toFile: log, atomically: true, encoding: .utf8) }
         }
+        #endif
         // Finder'a hemen yanıt ver; dosyaları Apple olayı işleyicisinin dışında, modal pencere yokken işle
         sender.reply(toOpenOrPrint: .success)
         if launched {
@@ -205,8 +212,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // Aynı dosya hem argüman hem de LaunchServices üzerinden gelebilir → tekilleştir
         var seen = Set<String>()
         let files = rawFiles.map { Self.resolved($0) }.filter { seen.insert($0).inserted }
-        let archives = files.filter { Self.isArchive($0) }
-        let others = files.filter { !Self.isArchive($0) }
+        let archives = files.filter { Formats.isArchive($0) }
+        let others = files.filter { !Formats.isArchive($0) }
         for a in archives { openArchive(a, reuse: nil) }
         if !others.isEmpty {
             compressWithDialog(items: others, host: nil) { [weak self] path in
@@ -267,11 +274,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             #endif
             self.finishCommand()
         case .extractHere(let a):
-            processArchives(Self.dedupeVolumes(a), dest: { ($0 as NSString).deletingLastPathComponent })
+            processArchives(Volumes.dedupe(a), dest: { ($0 as NSString).deletingLastPathComponent })
         case .extractFolder(let a):
-            processArchives(Self.dedupeVolumes(a), dest: { Ops.folderNamedAfterArchive($0) })
+            processArchives(Volumes.dedupe(a), dest: { Ops.folderNamedAfterArchive($0) })
         case .extractTo(let a):
-            let list = Self.dedupeVolumes(a)
+            let list = Volumes.dedupe(a)
             guard let first = list.first,
                   let d = Dialogs.chooseFolder(title: L("Nereye çıkartılsın?"), prompt: L("Çıkart"),
                                                initial: (first as NSString).deletingLastPathComponent) else {
@@ -279,12 +286,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
             processArchives(list, dest: { _ in d })
         case .test(let a):
-            testArchives(Self.dedupeVolumes(a))
+            testArchives(Volumes.dedupe(a))
         case .compress(let items):
             let existing = items.filter { FileManager.default.fileExists(atPath: $0) }
             guard !existing.isEmpty else { self.finishCommand(); return }
             var opts = CompressOptions.withDefaults(for: existing)
             // Hata ayıklama: MACRAR_DEBUG_FORMAT=zip|7z|tar.gz… ve MACRAR_DEBUG_PASSWORD ile biçim/şifre seçimi
+            #if DEBUG
             if let f = ProcessInfo.processInfo.environment["MACRAR_DEBUG_FORMAT"],
                let fmt = ArchiveFormat.allCases.first(where: { $0.ext == f }) {
                 opts.format = fmt
@@ -292,6 +300,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 opts.password = ProcessInfo.processInfo.environment["MACRAR_DEBUG_PASSWORD"]
                 opts.encryptNames = ProcessInfo.processInfo.environment["MACRAR_DEBUG_ENCNAMES"] != nil
             }
+            #endif
             Ops.compress(items: existing, options: opts, host: nil) { ok, path in
                 if ok, Prefs.revealAfterCompress { Ops.revealInFinder(path) }
                 self.finishCommand()
@@ -303,40 +312,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
-    /// Çok parçalı arşivlerde yalnızca ilk parçayı bırakır (ad.part2.rar, ad.7z.002, ad.r00, ad.z01 vb. atlanır)
-    static func dedupeVolumes(_ rawPaths: [String]) -> [String] {
-        // Eski tarz parçalar: ad.rar + ad.r00, ad.r01… ve ad.zip + ad.z01…; ilk parça seçimdeyse diğerleri atlanır
-        let lowerSet = Set(rawPaths.map { $0.lowercased() })
-        let paths = rawPaths.filter { p in
-            let ns = p.lowercased() as NSString
-            let ext = ns.pathExtension
-            if ext.range(of: #"^r\d\d$"#, options: .regularExpression) != nil { return !lowerSet.contains(ns.deletingPathExtension + ".rar") }
-            if ext.range(of: #"^z\d\d$"#, options: .regularExpression) != nil { return !lowerSet.contains(ns.deletingPathExtension + ".zip") }
-            return true
-        }
-        let regex = try! NSRegularExpression(pattern: #"^(.*)\.(?:part(\d+)\.rar|(?:7z|zip|rar|tar|bin)\.(\d{3}))$"#, options: .caseInsensitive)
-        var best: [String: (Int, String)] = [:]
-        var order: [String] = []
-        var result: [String] = []
-        for p in paths {
-            let ns = p as NSString
-            if let m = regex.firstMatch(in: p, range: NSRange(location: 0, length: ns.length)) {
-                let base = ns.substring(with: m.range(at: 1))
-                let numRange = m.range(at: 2).location != NSNotFound ? m.range(at: 2) : m.range(at: 3)
-                let num = Int(ns.substring(with: numRange)) ?? 0
-                if let cur = best[base] {
-                    if num < cur.0 { best[base] = (num, p) }
-                } else {
-                    best[base] = (num, p)
-                    order.append(base)
-                }
-            } else {
-                result.append(p)
-            }
-        }
-        for b in order { if let v = best[b] { result.append(v.1) } }
-        return result
-    }
 
     private func processArchives(_ archives: [String], dest: @escaping (String) -> String, index: Int = 0) {
         guard index < archives.count else { finishCommand(); return }

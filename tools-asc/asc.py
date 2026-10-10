@@ -2,7 +2,7 @@
 """App Store Connect API yardımcı aracı (yalnızca standart kütüphane + openssl).
 Kullanım:
   asc.py screenshots   → docs/appstore/{en,tr}/*.png dosyalarını Mac ekran görüntüsü olarak yükler
-  asc.py review        → App Review iletişim bilgisi ve notlarını kaydeder
+  asc.py review        → App Review iletişim bilgisi (signing/review-contact.json) ve notlarını kaydeder
   asc.py builds        → yüklenen build'lerin işlenme durumunu gösterir
   asc.py attach        → işlenmiş en son build'i 1.0 sürümüne bağlar
 Ayarlar: signing/asc.json (git dışında) ya da ASC_KEY_ID / ASC_ISSUER / ASC_APP_ID; anahtar ~/.appstoreconnect/private_keys/AuthKey_<ID>.p8
@@ -94,9 +94,14 @@ def screenshots():
 
 def review():
     ver = mac_version()
+    contact_path = os.path.join(ROOT, "signing/review-contact.json")
+    if not os.path.exists(contact_path):
+        sys.exit("signing/review-contact.json yok; tools-asc/review-contact.example.json dosyasını kopyalayıp doldurun")
+    with open(contact_path, encoding="utf-8") as f:
+        c = json.load(f)
     notes = open(os.path.join(ROOT, "docs/appstore/review-notes.txt"), encoding="utf-8").read().split("Notes:\n", 1)[1].strip()
-    attrs = {"contactFirstName": "Mesut", "contactLastName": "Çevik", "contactPhone": "+905437154484",
-             "contactEmail": "mesutcevik@gmail.com", "demoAccountRequired": False, "notes": notes}
+    attrs = {"contactFirstName": c["firstName"], "contactLastName": c["lastName"], "contactPhone": c["phone"],
+             "contactEmail": c["email"], "demoAccountRequired": False, "notes": notes}
     cur = req("GET", f"/v1/appStoreVersions/{ver['id']}/appStoreReviewDetail").get("data")
     if cur:
         req("PATCH", f"/v1/appStoreReviewDetails/{cur['id']}", {"data": {"type": "appStoreReviewDetails", "id": cur["id"], "attributes": attrs}})

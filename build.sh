@@ -27,6 +27,8 @@ else
   APPNAME="MacRAR"; EXEC="MacRAR"; BUNDLE_ID="com.mesut.macrar"
   SWIFT_FLAGS=()
 fi
+# MACRAR_DEBUG_* test kancaları yalnızca bu bayrakla derlenen sürüme girer
+if [[ "${MACRAR_DEBUG_BUILD:-}" == 1 ]]; then SWIFT_FLAGS+=(-D DEBUG); fi
 APP="$BUILD/$APPNAME.app"
 
 echo "▸ [$VARIANT] Temizleniyor"
@@ -48,8 +50,11 @@ cp "$BUILD/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
 echo "▸ Çeviri tablosu denetleniyor"
 # Sözlükte yinelenen anahtar derlenir ama İngilizce sistemlerde açılışta çöker (1.3'teki hata)
 echo 'print(L10n.en.count)' > "$BUILD/obj/main.swift"
-swiftc -swift-version 5 -module-name L10nCheck Sources/Localization.swift "$BUILD/obj/main.swift" -o "$BUILD/obj/l10n-check" 2>/dev/null
+swiftc -swift-version 5 -module-name L10nCheck Sources/Localization.swift "$BUILD/obj/main.swift" -o "$BUILD/obj/l10n-check" || { echo "✘ Sources/Localization.swift derlenemedi"; exit 1; }
 "$BUILD/obj/l10n-check" >/dev/null 2>&1 || { echo "✘ Sources/Localization.swift: İngilizce tabloda yinelenen anahtar var"; exit 1; }
+
+echo "▸ Birim testleri (tests/run.sh)"
+sh tests/run.sh
 
 echo "▸ Swift derleniyor (arm64 + x86_64)"
 for arch in arm64 x86_64; do

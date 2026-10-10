@@ -82,12 +82,6 @@ enum FolderAccess {
         #endif
     }
 
-    static func resetAll() {
-        for u in active { u.stopAccessingSecurityScopedResource() }
-        active = []
-        UserDefaults.standard.removeObject(forKey: key)
-    }
-
     private static func remember(_ url: URL) {
         guard let data = try? url.bookmarkData(options: .withSecurityScope, includingResourceValuesForKeys: nil, relativeTo: nil) else { return }
         var list = UserDefaults.standard.array(forKey: key) as? [Data] ?? []

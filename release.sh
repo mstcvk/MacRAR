@@ -69,10 +69,10 @@ if [[ "$1" == "publish" ]]; then
     echo "▸ Homebrew cask güncelleniyor ($TAP_DIR)"
     SHA=$(shasum -a 256 "$DMG" | cut -d' ' -f1)
     sed -i '' -e "s/^  version \".*\"/  version \"$VERSION\"/" -e "s/^  sha256 \".*\"/  sha256 \"$SHA\"/" "$TAP_DIR/Casks/macrar.rb"
-    if git -C "$TAP_DIR" diff --quiet; then
+    if git -C "$TAP_DIR" diff --quiet -- Casks/macrar.rb; then
       echo "  cask zaten güncel"
     else
-      git -C "$TAP_DIR" commit -qam "macrar $VERSION" && git -C "$TAP_DIR" push -q
+      git -C "$TAP_DIR" add Casks/macrar.rb && git -C "$TAP_DIR" commit -q -m "macrar $VERSION" -- Casks/macrar.rb && git -C "$TAP_DIR" push -q
       echo "✔ brew install --cask mstcvk/tap/macrar → $VERSION"
     fi
   else

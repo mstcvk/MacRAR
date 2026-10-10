@@ -34,27 +34,32 @@ final class EmptyStateView: NSView {
 
 final class Node: NSObject {
     let name: String
-    let path: String
+    let path: String        // 7zz'ye verilen ham yol; seçim, çıkartma ve silme bunu kullanır
+    var key = ""            // normalize yol ("./" yok); filtre ve görüntüleme için
     let isDir: Bool
     var entry: ArchiveEntry?
     var children: [Node] = []
-    weak var parent: Node?
 
     init(name: String, path: String, isDir: Bool) {
         self.name = name; self.path = path; self.isDir = isDir
     }
 
-    var totalSize: Int64 {
-        if !isDir { return entry?.size ?? 0 }
-        return children.reduce(0) { $0 + $1.totalSize }
-    }
-    var totalPacked: Int64 {
-        if !isDir { return entry?.packedSize ?? 0 }
-        return children.reduce(0) { $0 + $1.totalPacked }
-    }
-    var containsEncrypted: Bool {
-        if !isDir { return entry?.encrypted ?? false }
-        return children.contains { $0.containsEncrypted }
+    /// Toplamlar `buildTree` içinde bir kez hesaplanır; ağaç oluşturulduktan sonra değişmez
+    private(set) var totalSize: Int64 = 0
+    private(set) var totalPacked: Int64 = 0
+    private(set) var containsEncrypted = false
+
+    func computeTotals() {
+        if !isDir {
+            totalSize = entry?.size ?? 0
+            totalPacked = entry?.packedSize ?? 0
+            containsEncrypted = entry?.encrypted ?? false
+            return
+        }
+        children.forEach { $0.computeTotals() }
+        totalSize = children.reduce(0) { $0 + $1.totalSize }
+        totalPacked = children.reduce(0) { $0 + $1.totalPacked }
+        containsEncrypted = children.contains { $0.containsEncrypted }
     }
 
     func sortRecursively(key: String = "name", ascending: Bool = true) {
@@ -83,30 +88,27 @@ final class Node: NSObject {
 
     static func buildTree(_ entries: [ArchiveEntry]) -> Node {
         let root = Node(name: "", path: "", isDir: true)
-        var map: [String: Node] = ["": root]
-        func ensure(_ path: String) -> Node {
-            if let n = map[path] { return n }
-            let parentPath = (path as NSString).deletingLastPathComponent
-            let parent = ensure(parentPath)
-            let n = Node(name: (path as NSString).lastPathComponent, path: path, isDir: true)
-            n.parent = parent
-            parent.children.append(n)
-            map[path] = n
-            return n
-        }
+        var map: [String: Node] = [:]
         for e in entries {
-            let clean = e.name.hasSuffix("/") ? String(e.name.dropLast()) : e.name
-            if e.isDirectory {
-                ensure(clean).entry = e
-            } else {
-                let parent = ensure((clean as NSString).deletingLastPathComponent)
-                let n = Node(name: (clean as NSString).lastPathComponent, path: clean, isDir: false)
-                n.entry = e
-                n.parent = parent
-                parent.children.append(n)
-                map[clean] = n
+            // ".." ve mutlak yollu girdiler ağaca alınmaz; bunları içeren arşiv zaten çıkartılmaz
+            guard let levels = ArchivePath.levels(e.name), !levels.isEmpty else { continue }
+            var parent = root
+            for (i, lv) in levels.enumerated() {
+                let node: Node
+                if let existing = map[lv.key] {
+                    node = existing
+                } else {
+                    let isLast = i == levels.count - 1
+                    node = Node(name: lv.name, path: lv.path, isDir: !isLast || e.isDirectory)
+                    node.key = lv.key
+                    parent.children.append(node)
+                    map[lv.key] = node
+                }
+                if i == levels.count - 1 { node.entry = e }
+                parent = node
             }
         }
+        root.computeTotals()
         root.sortRecursively()
         return root
     }
@@ -327,8 +329,10 @@ final class ArchiveWindowController: NSWindowController, NSWindowDelegate, NSMen
             return
         }
         self.info = info
+        previewCache.removeAll()
         root = Node.buildTree(info.entries)
-        root.sortRecursively(key: sortKey, ascending: sortAscending)
+        // buildTree zaten ada sırasına göre artan sıralar; varsayılan sıralamada tekrar sıralamaya gerek yok
+        if sortKey != "name" || !sortAscending { root.sortRecursively(key: sortKey, ascending: sortAscending) }
         applyFilter()
         window?.title = (path as NSString).lastPathComponent
         window?.subtitle = AppInfo.abbreviate((path as NSString).deletingLastPathComponent)
@@ -337,9 +341,12 @@ final class ArchiveWindowController: NSWindowController, NSWindowDelegate, NSMen
         if root.children.count == 1, let only = root.children.first, only.isDir {
             outline.expandItem(only)
         }
+        #if DEBUG
         if ProcessInfo.processInfo.environment["MACRAR_DEBUG_EXPAND"] != nil {
             outline.expandItem(nil, expandChildren: true)
         }
+        #endif
+        #if DEBUG
         if let sort = ProcessInfo.processInfo.environment["MACRAR_DEBUG_SORT"] {   // örn. size:desc
             let parts = sort.split(separator: ":")
             outline.sortDescriptors = [NSSortDescriptor(key: String(parts[0]), ascending: parts.count < 2 || parts[1] != "desc")]
@@ -348,9 +355,12 @@ final class ArchiveWindowController: NSWindowController, NSWindowDelegate, NSMen
             let parts = size.split(separator: "x").compactMap { Double($0) }
             if parts.count == 2 { window?.setContentSize(NSSize(width: parts[0], height: parts[1])) }
         }
+        #endif
         updateStatus()
         NSDocumentController.shared.noteNewRecentDocumentURL(URL(fileURLWithPath: path))
+        #if DEBUG
         if let dest = ProcessInfo.processInfo.environment["MACRAR_DEBUG_DRAG"] { simulateDrag(to: dest) }
+        #endif
     }
 
     /// Hata ayıklama: ilk üst düzey öğeleri Finder'a sürüklenmiş gibi hedefe yazar
@@ -379,7 +389,7 @@ final class ArchiveWindowController: NSWindowController, NSWindowDelegate, NSMen
         } else {
             var all: [Node] = []
             root.flatten(into: &all)
-            filtered = all.filter { $0.path.localizedCaseInsensitiveContains(filterText) }
+            filtered = all.filter { $0.key.localizedCaseInsensitiveContains(filterText) }
                 .sorted { Node.compare($0, $1, key: sortKey, ascending: sortAscending) }
         }
         outline.reloadData()
@@ -400,7 +410,7 @@ final class ArchiveWindowController: NSWindowController, NSWindowDelegate, NSMen
         } else if let f = filtered {
             parts.append(LF("%d eşleşme", f.count))
         } else {
-            parts.append(LF("%d dosya, %@ (paketli %@)", info.fileCount, Fmt.size(info.totalSize), Fmt.size(info.totalPacked)))
+            parts.append(LF("%d dosya, %@ (paketli %@)", info.fileCount, Fmt.size(info.totalSize), info.tarCompressed ? "—" : Fmt.size(info.totalPacked)))
         }
         var det = info.details
         if info.headersEncrypted, !det.contains("encrypted headers") { det += ", encrypted headers" }
@@ -424,8 +434,8 @@ final class ArchiveWindowController: NSWindowController, NSWindowDelegate, NSMen
     private func selectedPaths() -> [String] { Self.paths(for: selectedNodes()) }
 
     private static func paths(for nodes: [Node]) -> [String] {
-        let dirs = nodes.filter { $0.isDir }.map { $0.path + "/" }
-        return nodes.filter { n in !dirs.contains { n.path.hasPrefix($0) } }.map { $0.path }
+        let dirs = Set(nodes.filter { $0.isDir }.map { $0.path })
+        return nodes.filter { !ArchivePath.isInsideDir($0.path, of: dirs) }.map { $0.path }
     }
 
     // MARK: Eylemler
@@ -528,7 +538,7 @@ final class ArchiveWindowController: NSWindowController, NSWindowDelegate, NSMen
         let fileSize = (attrs[.size] as? Int64) ?? 0
         let text = LF("Dosya: %@\nArşiv boyutu: %@\nBiçim: %@\nDosya sayısı: %d\nKlasör sayısı: %d\nToplam boyut: %@\nPaketli boyut: %@\nŞifreli: %@",
                       info.path, Fmt.size(fileSize), info.details, info.fileCount, info.entries.count - info.fileCount,
-                      Fmt.size(info.totalSize), Fmt.size(info.totalPacked), info.hasEncryptedFiles ? L("Evet") : L("Hayır"))
+                      Fmt.size(info.totalSize), info.tarCompressed ? "—" : Fmt.size(info.totalPacked), info.hasEncryptedFiles ? L("Evet") : L("Hayır"))
         Dialogs.info((info.path as NSString).lastPathComponent, text)
     }
 
@@ -571,16 +581,29 @@ final class ArchiveWindowController: NSWindowController, NSWindowDelegate, NSMen
         prepareQuickLook { QLPreviewPanel.shared()?.makeKeyAndOrderFront(nil) }
     }
 
+    /// Önizlemede açılmış dosyalar (ham yol → geçici dosya); aynı dosya tekrar çıkartılmaz
+    private var previewCache: [String: URL] = [:]
+
     private func prepareQuickLook(completion: @escaping () -> Void) {
         guard let info else { return }
         let files = selectedNodes().filter { !$0.isDir }
         guard !files.isEmpty else { return }
+        let missing = files.filter { previewCache[$0.path] == nil }
+        guard !missing.isEmpty else {
+            previewURLs = files.compactMap { previewCache[$0.path] }
+            completion()
+            return
+        }
         let tmp = TempDirs.make("ql")
-        Ops.extract(info: info, names: files.map { $0.path }, dest: tmp, password: password, host: window, quiet: true) { [weak self] ok, pw in
+        Ops.extract(info: info, names: missing.map { $0.path }, dest: tmp, password: password, host: window, quiet: true) { [weak self] ok, pw in
             guard let self else { return }
             self.password = pw ?? self.password
             guard ok else { return }
-            self.previewURLs = files.map { URL(fileURLWithPath: (tmp as NSString).appendingPathComponent($0.path)) }
+            for n in missing {
+                let url = URL(fileURLWithPath: (tmp as NSString).appendingPathComponent(n.path))
+                if FileManager.default.fileExists(atPath: url.path) { self.previewCache[n.path] = url }
+            }
+            self.previewURLs = files.compactMap { self.previewCache[$0.path] }
             completion()
         }
     }
@@ -589,13 +612,18 @@ final class ArchiveWindowController: NSWindowController, NSWindowDelegate, NSMen
     override func beginPreviewPanelControl(_ panel: QLPreviewPanel!) { panel.dataSource = self; panel.delegate = self }
     override func endPreviewPanelControl(_ panel: QLPreviewPanel!) { panel.dataSource = nil; panel.delegate = nil }
 
-    @objc func searchChanged(_ sender: NSSearchField) {
-        filterText = sender.stringValue.trimmingCharacters(in: .whitespaces)
-        applyFilter()
-    }
+    private var filterWork: DispatchWorkItem?
 
-    @objc func selectAllItems(_ sender: Any?) {
-        outline.selectAll(nil)
+    @objc func searchChanged(_ sender: NSSearchField) {
+        // Her tuşta değil, yazma durduktan kısa süre sonra süz: büyük arşivde ağaç taraması pahalıdır
+        filterWork?.cancel()
+        let text = sender.stringValue.trimmingCharacters(in: .whitespaces)
+        let work = DispatchWorkItem { [weak self] in
+            self?.filterText = text
+            self?.applyFilter()
+        }
+        filterWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: work)
     }
 
     // MARK: Doğrulama
@@ -734,12 +762,12 @@ extension ArchiveWindowController: NSOutlineViewDataSource, NSOutlineViewDelegat
         let e = node.entry
         switch id {
         case Self.nameCol:
-            cell?.textField?.stringValue = filtered != nil ? node.path : node.name
+            cell?.textField?.stringValue = filtered != nil ? node.key : node.name
             cell?.imageView?.image = icon(for: node)
         case Self.sizeCol:
             cell?.textField?.stringValue = Fmt.size(node.totalSize)
         case Self.packedCol:
-            cell?.textField?.stringValue = Fmt.size(node.totalPacked)
+            cell?.textField?.stringValue = info?.tarCompressed == true ? "" : Fmt.size(node.totalPacked)
         case Self.ratioCol:
             cell?.textField?.stringValue = e?.ratio ?? ""
         case Self.dateCol:
@@ -794,8 +822,8 @@ extension ArchiveWindowController: NSOutlineViewDataSource, NSOutlineViewDelegat
 
     func handleDrop(_ urls: [URL]) {
         let paths = urls.map { $0.path }
-        let archives = paths.filter { AppDelegate.isArchive($0) }
-        let others = paths.filter { !AppDelegate.isArchive($0) }
+        let archives = paths.filter { Formats.isArchive($0) }
+        let others = paths.filter { !Formats.isArchive($0) }
         if self.info != nil, !others.isEmpty {
             // Açık arşive bırakılan karışık seçim: arşiv dosyaları dahil hepsi eklenir (hiçbiri sessizce atlanmaz)
             DispatchQueue.main.async { [weak self] in self?.addItems(paths) }

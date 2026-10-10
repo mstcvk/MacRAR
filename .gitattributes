@@ -1,0 +1,2 @@
+# Shell betikleri Windows checkout'unda da LF kalmalı (CRLF ile sh/zsh çalışmaz)
+*.sh text eol=lf

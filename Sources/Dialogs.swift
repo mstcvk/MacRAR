@@ -16,7 +16,9 @@ enum Dialogs {
     }
 
     static func askPassword(archiveName: String, wrong: Bool = false) -> String? {
+        #if DEBUG
         if let dbg = ProcessInfo.processInfo.environment["MACRAR_DEBUG_PASSWORD"], !wrong { return dbg == "__cancel__" ? nil : dbg }
+        #endif
         activate()
         let alert = NSAlert()
         alert.messageText = wrong ? L("Şifre hatalı") : L("Şifre gerekli")
@@ -124,7 +126,9 @@ enum Dialogs {
     }
 
     static func confirm(_ title: String, _ detail: String, okTitle: String = L("Tamam"), destructive: Bool = false) -> Bool {
+        #if DEBUG
         if ProcessInfo.processInfo.environment["MACRAR_DEBUG_CONFIRM"] != nil { return true }
+        #endif
         activate()
         let alert = NSAlert()
         alert.messageText = title
@@ -333,8 +337,10 @@ final class ProgressPanel: NSWindowController {
         self.host = host
         guard let w = window else { return }
         resizeToFit(animate: false)
+        #if DEBUG
         if ProcessInfo.processInfo.environment["MACRAR_DEBUG_DETAILS"] != nil { toggleDetails() }
         if ProcessInfo.processInfo.environment["MACRAR_DEBUG_DETAILS"] == "toggle" { toggleDetails() }
+        #endif
         if let host, host.isVisible {
             host.beginSheet(w)
         } else {
@@ -528,7 +534,9 @@ struct CompressOptions {
 
         case .tgz, .txz, .tbz2:
             let outer: String = format == .tgz ? "gzip" : (format == .txz ? "xz" : "bzip2")
-            let tmpTar = NSTemporaryDirectory() + "Archiver-\(UUID().uuidString).tar"
+            let tmpDir = TempDirs.make("tgz")
+            try? FileManager.default.createDirectory(atPath: tmpDir, withIntermediateDirectories: true)
+            let tmpTar = (tmpDir as NSString).appendingPathComponent("archive.tar")
             var step1 = ["a", "-y", "-bsp1", "-bb1", "-ttar"]
             if deleteAfter { step1.append("-sdel") }
             let step2 = ["a", "-y", "-bsp1", "-bb1", "-t\(outer)", "-mx=\(mx)", "--", archivePath, tmpTar]

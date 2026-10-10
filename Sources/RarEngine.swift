@@ -16,11 +16,6 @@ struct ArchiveEntry {
     var mtime: String = ""
     var crc: String = ""
     var encrypted: Bool = false
-    var attributes: String = ""
-    var compression: String = ""
-
-    var displayName: String { (name as NSString).lastPathComponent }
-    var parentPath: String { (name as NSString).deletingLastPathComponent }
 }
 
 struct ArchiveInfo {
@@ -33,18 +28,19 @@ struct ArchiveInfo {
     var tarCompressed: Bool { Formats.isTarCompressed(path) }
 
     var hasEncryptedFiles: Bool { headersEncrypted || entries.contains { $0.encrypted } }
-    var isSolid: Bool { details.contains("solid") }
     var fileCount: Int { entries.filter { !$0.isDirectory }.count }
     var totalSize: Int64 { entries.reduce(0) { $0 + $1.size } }
     var totalPacked: Int64 { entries.reduce(0) { $0 + $1.packedSize } }
     var topLevelNames: [String] {
         var seen = Set<String>(); var out: [String] = []
         for e in entries {
-            let top = e.name.split(separator: "/", maxSplits: 1, omittingEmptySubsequences: true).first.map(String.init) ?? e.name
-            if seen.insert(top).inserted { out.append(top) }
+            guard let top = ArchivePath.topLevel(e.name), seen.insert(top).inserted else { continue }
+            out.append(top)
         }
         return out
     }
+    /// ".." veya mutlak yol içeren girdi var mı; varsa çıkartma reddedilir
+    var hasUnsafePaths: Bool { entries.contains { ArchivePath.safeComponents($0.name) == nil } }
     /// Dosya ekleme / silme desteklenir mi?
     var supportsModification: Bool {
         if tarCompressed { return false }
@@ -145,12 +141,6 @@ enum RarRunner {
         }
     }
 
-    /// (eski) unrar şifre argümanı: "-p-" = şifre sorma
-    static func passwordArg(_ pw: String?, encryptHeaders: Bool = false) -> String {
-        guard let pw, !pw.isEmpty else { return "-p-" }
-        return (encryptHeaders ? "-hp" : "-p") + pw
-    }
-
     /// rar (a / d) için şifre argümanları. DİKKAT: rar, "-p-" verilince "-" karakterini şifre olarak kullanır;
     /// bu yüzden şifre yoksa hiçbir anahtar verilmez.
     static func rarPasswordArgs(_ pw: String?, encryptHeaders: Bool = false) -> [String] {
@@ -175,11 +165,6 @@ enum RarRunner {
         if let cwd { p.currentDirectoryURL = URL(fileURLWithPath: cwd) }
         p.standardInput = FileHandle.nullDevice
         return p
-    }
-
-    /// Eşzamanlı çalıştırır, tüm çıktıyı toplar.
-    static func run(_ tool: RarTool, _ args: [String], cwd: String? = nil) -> RarResult {
-        runStages([(tool, args)], cwd: cwd)
     }
 
     /// Birbirine borulanmış aşamaları eşzamanlı çalıştırır; son aşamanın çıktısı ve çıkış kodu döner.
@@ -271,13 +256,11 @@ enum RarRunner {
             let isDir = block["Folder"] == "+" || attrs.hasPrefix("D")
             var e = ArchiveEntry(name: name.hasSuffix("/") ? String(name.dropLast()) : name, isDirectory: isDir)
             e.size = Int64(block["Size"] ?? "") ?? 0
-            e.packedSize = Int64(block["Packed Size"] ?? "") ?? 0
-            if e.size > 0, e.packedSize > 0 { e.ratio = "\(Int(Double(e.packedSize) * 100 / Double(e.size)))%" }
+            if !Formats.isTarCompressed(path) { e.packedSize = Int64(block["Packed Size"] ?? "") ?? 0 }
+            if !Formats.isTarCompressed(path), e.size > 0, e.packedSize > 0 { e.ratio = "\(Int(Double(e.packedSize) * 100 / Double(e.size)))%" }
             if let m = block["Modified"] { e.mtime = String(m.prefix(19)) }
             e.crc = block["CRC"] ?? ""
             e.encrypted = block["Encrypted"] == "+"
-            e.attributes = attrs
-            e.compression = block["Method"] ?? ""
             entries.append(e)
         }
         for raw in entryLines {
@@ -330,16 +313,13 @@ final class RarJob {
     private var output = ""
     private(set) var cancelled = false
     var onEvent: ((Event) -> Void)?   // ana kuyrukta çağrılır
+    private var keepAlive: RarJob?    // başlatıldığı andan tamamlanmasına kadar işi canlı tutar
 
     private static let verbs = ["Extracting", "Adding", "Testing", "Updating", "Creating", "Deleting", "Compressing", "Fresh", "Calculating"]
     private static let percentRegex = try! NSRegularExpression(pattern: #"(\d{1,3})%"#)
     private static let percentHeadRegex = try! NSRegularExpression(pattern: #"^\s*(\d{1,3})%"#)
     private static let tailRegex = try! NSRegularExpression(pattern: #"\s*(\d{1,3}%|OK|Failed|CRC failed)\s*$"#)
     private static let sevenNameRegex = try! NSRegularExpression(pattern: #"(?:^|\s)([-+TU])\s(\S.*)$"#)
-
-    func start(_ tool: RarTool, _ args: [String], cwd: String? = nil, completion: @escaping (RarResult) -> Void) {
-        start(stages: [(tool, args)], cwd: cwd, completion: completion)
-    }
 
     /// Aşamalar birbirine borulanır; yalnızca son aşamanın çıktısı izlenir.
     func start(stages: [Stage], cwd: String? = nil, completion: @escaping (RarResult) -> Void) {
@@ -377,13 +357,25 @@ final class RarJob {
                 self.flushPartial()
                 for p in self.processes where p !== proc && p.isRunning { p.terminate() }
                 let result = RarResult(code: proc.terminationStatus, output: self.output, cancelled: self.cancelled)
-                DispatchQueue.main.async { completion(result) }
+                // Süreç ve handler artık gerekmez; döngüleri kır ki iş ve callback'ler serbest kalsın
+                proc.terminationHandler = nil
+                self.processes = []
+                DispatchQueue.main.async {
+                    self.keepAlive = nil
+                    completion(result)
+                }
             }
         }
         processes = procs
+        keepAlive = self
         for p in procs {
             do { try p.run() } catch {
+                // Okuma kaynağını kapat, başlamış süreçleri durdur; yoksa pipe ve süreçler açık kalır
+                handle.readabilityHandler = nil
+                procs.filter { $0.isRunning }.forEach { $0.terminate() }
+                processes = []
                 DispatchQueue.main.async {
+                    self.keepAlive = nil
                     completion(RarResult(code: -1, output: LF("Çalıştırılamadı: %@", error.localizedDescription)))
                 }
                 return
@@ -391,9 +383,17 @@ final class RarJob {
         }
     }
 
+    /// Olay iletimini bırakır; yazma iş kuyruğunda yapılır, okuma ile yarışmaz
+    func detach() {
+        queue.async { self.onEvent = nil }
+    }
+
     func cancel() {
-        cancelled = true
-        processes.forEach { if $0.isRunning { $0.terminate() } }
+        // Durum yalnızca iş kuyruğunda okunur/yazılır (termination handler de orada çalışır)
+        queue.async {
+            self.cancelled = true
+            self.processes.forEach { if $0.isRunning { $0.terminate() } }
+        }
     }
 
     private func consume(_ data: Data) {
