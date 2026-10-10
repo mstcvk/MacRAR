@@ -397,7 +397,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     static let repoURL = URL(string: "https://github.com/mstcvk/MacRAR")!
     @objc func openHelp(_ sender: Any?) {
-        NSWorkspace.shared.open(Self.repoURL.appendingPathComponent("blob/main/README.md"))
+        NSWorkspace.shared.open(Self.repoURL.appendingPathComponent(L10n.isTurkish ? "blob/main/README.tr.md" : "blob/main/README.md"))
     }
     @objc func openReleaseNotes(_ sender: Any?) { NSWorkspace.shared.open(Self.repoURL.appendingPathComponent("releases")) }
     @objc func reportIssue(_ sender: Any?) { NSWorkspace.shared.open(Self.repoURL.appendingPathComponent("issues/new")) }
