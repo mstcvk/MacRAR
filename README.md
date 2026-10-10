@@ -198,7 +198,7 @@ makeicon.swift               draws the app icon
 
 ### Debug hooks
 
-Environment variables used for automated testing (no screen recording permission is needed):
+Environment variables used for automated testing (no screen recording permission is needed). The `MACRAR_DEBUG_*` ones are compiled in only by `MACRAR_DEBUG_BUILD=1 ./build.sh`; release builds ignore them:
 
 | Variable | Effect |
 |---|---|

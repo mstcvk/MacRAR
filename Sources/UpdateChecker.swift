@@ -10,7 +10,9 @@ enum UpdateChecker {
     private static let interval: TimeInterval = 24 * 3600
 
     static var currentVersion: String {
+        #if DEBUG
         if let v = ProcessInfo.processInfo.environment["MACRAR_DEBUG_VERSION"] { return v }
+        #endif
         return Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0"
     }
 

@@ -27,6 +27,8 @@ else
   APPNAME="MacRAR"; EXEC="MacRAR"; BUNDLE_ID="com.mesut.macrar"
   SWIFT_FLAGS=()
 fi
+# MACRAR_DEBUG_* test kancaları yalnızca bu bayrakla derlenen sürüme girer
+if [[ "${MACRAR_DEBUG_BUILD:-}" == 1 ]]; then SWIFT_FLAGS+=(-D DEBUG); fi
 APP="$BUILD/$APPNAME.app"
 
 echo "▸ [$VARIANT] Temizleniyor"

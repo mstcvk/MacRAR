@@ -334,9 +334,12 @@ final class ArchiveWindowController: NSWindowController, NSWindowDelegate, NSMen
         if root.children.count == 1, let only = root.children.first, only.isDir {
             outline.expandItem(only)
         }
+        #if DEBUG
         if ProcessInfo.processInfo.environment["MACRAR_DEBUG_EXPAND"] != nil {
             outline.expandItem(nil, expandChildren: true)
         }
+        #endif
+        #if DEBUG
         if let sort = ProcessInfo.processInfo.environment["MACRAR_DEBUG_SORT"] {   // örn. size:desc
             let parts = sort.split(separator: ":")
             outline.sortDescriptors = [NSSortDescriptor(key: String(parts[0]), ascending: parts.count < 2 || parts[1] != "desc")]
@@ -345,9 +348,12 @@ final class ArchiveWindowController: NSWindowController, NSWindowDelegate, NSMen
             let parts = size.split(separator: "x").compactMap { Double($0) }
             if parts.count == 2 { window?.setContentSize(NSSize(width: parts[0], height: parts[1])) }
         }
+        #endif
         updateStatus()
         NSDocumentController.shared.noteNewRecentDocumentURL(URL(fileURLWithPath: path))
+        #if DEBUG
         if let dest = ProcessInfo.processInfo.environment["MACRAR_DEBUG_DRAG"] { simulateDrag(to: dest) }
+        #endif
     }
 
     /// Hata ayıklama: ilk üst düzey öğeleri Finder'a sürüklenmiş gibi hedefe yazar

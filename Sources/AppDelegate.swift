@@ -62,6 +62,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if !isDefaultLaunch, pendingFiles.isEmpty, pendingCommand == nil { launchedForService = true }
         #endif
         scheduleDebugSnapshot()
+        #if DEBUG
         if ProcessInfo.processInfo.environment["MACRAR_DEBUG_ABOUT"] != nil { showAbout(nil) }
         if ProcessInfo.processInfo.environment["MACRAR_DEBUG_PREFS"] != nil { showPreferences(nil) }
         if let e = ProcessInfo.processInfo.environment["MACRAR_DEBUG_ASSOC_APPLY"] {
@@ -70,7 +71,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             }
             return
         }
-        #if !APPSTORE
+        #endif
+        #if !APPSTORE && DEBUG
         if let p = ProcessInfo.processInfo.environment["MACRAR_DEBUG_RARINSTALL"] {
             do { try RarTools.install(from: URL(fileURLWithPath: p)); print("RAR kuruldu:", RarTools.version ?? "?", RarTools.installDir) }
             catch { print("RAR kurulamadı:", error.localizedDescription) }
@@ -105,10 +107,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         DispatchQueue.main.asyncAfter(deadline: .now() + 3) { if Prefs.checkUpdates { UpdateChecker.checkAutomatically() } }
         #endif
         // İlk açılışta dosya ilişkilendirme önerisi (yalnızca Uygulamalar klasöründen çalışırken; şifre sorusu vb. açıksa bekler)
-        if Bundle.main.bundlePath.hasPrefix("/Applications/") || ProcessInfo.processInfo.environment["MACRAR_DEBUG_ASSOC"] != nil {
+        #if DEBUG
+        let forceAssoc = ProcessInfo.processInfo.environment["MACRAR_DEBUG_ASSOC"] != nil
+        #else
+        let forceAssoc = false
+        #endif
+        if Bundle.main.bundlePath.hasPrefix("/Applications/") || forceAssoc {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
                 Dialogs.whenIdle {
-                    if ProcessInfo.processInfo.environment["MACRAR_DEBUG_ASSOC"] != nil { Associations.show(firstLaunch: true) }
+                    if forceAssoc { Associations.show(firstLaunch: true) }
                     else { Associations.promptIfFirstLaunch() }
                 }
             }
@@ -142,11 +149,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     func application(_ sender: NSApplication, openFiles filenames: [String]) {
+        #if DEBUG
         if let log = ProcessInfo.processInfo.environment["MACRAR_DEBUG_LOG"] {
             let line = "\(Date().timeIntervalSince1970) openFiles(\(filenames.count)): \(filenames.map { ($0 as NSString).lastPathComponent }) launched=\(launched) modal=\(NSApp.modalWindow != nil)\n"
             if let h = FileHandle(forWritingAtPath: log) { h.seekToEndOfFile(); h.write(line.data(using: .utf8)!); h.closeFile() }
             else { try? line.write(toFile: log, atomically: true, encoding: .utf8) }
         }
+        #endif
         // Finder'a hemen yanıt ver; dosyaları Apple olayı işleyicisinin dışında, modal pencere yokken işle
         sender.reply(toOpenOrPrint: .success)
         if launched {
@@ -285,6 +294,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             guard !existing.isEmpty else { self.finishCommand(); return }
             var opts = CompressOptions.withDefaults(for: existing)
             // Hata ayıklama: MACRAR_DEBUG_FORMAT=zip|7z|tar.gz… ve MACRAR_DEBUG_PASSWORD ile biçim/şifre seçimi
+            #if DEBUG
             if let f = ProcessInfo.processInfo.environment["MACRAR_DEBUG_FORMAT"],
                let fmt = ArchiveFormat.allCases.first(where: { $0.ext == f }) {
                 opts.format = fmt
@@ -292,6 +302,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 opts.password = ProcessInfo.processInfo.environment["MACRAR_DEBUG_PASSWORD"]
                 opts.encryptNames = ProcessInfo.processInfo.environment["MACRAR_DEBUG_ENCNAMES"] != nil
             }
+            #endif
             Ops.compress(items: existing, options: opts, host: nil) { ok, path in
                 if ok, Prefs.revealAfterCompress { Ops.revealInFinder(path) }
                 self.finishCommand()
