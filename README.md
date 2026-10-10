@@ -100,6 +100,14 @@ Everything is read, extracted and tested with the bundled `7zz` (including RAR, 
 
 Ready-made, Developer ID-signed and Apple-notarized builds are on the [Releases page](https://github.com/mstcvk/MacRAR/releases/latest): open the DMG, drag MacRAR into Applications and launch it. The first launch installs the Finder right-click menu and asks which file types should open with MacRAR. No Gatekeeper warnings.
 
+With [Homebrew](https://brew.sh):
+
+```bash
+brew install --cask mstcvk/tap/macrar
+```
+
+`brew upgrade --cask macrar` updates it; the cask lives in [mstcvk/homebrew-tap](https://github.com/mstcvk/homebrew-tap) and always points at the latest notarized DMG.
+
 Since 1.4 the app bundles only the 7-Zip engine (universal: Apple Silicon and Intel). RARLAB's `rar`/`unrar` are no longer included because their licence does not allow redistributing `rar`. RAR archives are opened with 7-Zip; to create RAR archives, MacRAR walks you through downloading "RAR for macOS" from rarlab.com and pointing the app at it.
 
 ## Requirements

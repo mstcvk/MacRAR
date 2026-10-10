@@ -57,6 +57,14 @@ Okuma, çıkartma ve test (RAR dahil, 7-Zip'in unRAR kodu ile) paketlenmiş `7zz
 
 Developer ID ile imzalı ve Apple tarafından notarize edilmiş hazır sürümler [Releases sayfasında](https://github.com/mstcvk/MacRAR/releases/latest): DMG'yi açın, MacRAR'ı Uygulamalar klasörüne sürükleyin ve çalıştırın. İlk açılış Finder sağ tık menüsünü kurar ve hangi dosya türlerinin MacRAR ile açılacağını sorar. Gatekeeper uyarısı çıkmaz.
 
+[Homebrew](https://brew.sh) ile:
+
+```bash
+brew install --cask mstcvk/tap/macrar
+```
+
+Güncellemek için `brew upgrade --cask macrar`. Cask [mstcvk/homebrew-tap](https://github.com/mstcvk/homebrew-tap) deposundadır ve her zaman en son notarize edilmiş DMG'yi gösterir.
+
 ## Gereksinimler
 
 - macOS 13 Ventura veya üstü, Apple Silicon ya da Intel (evrensel ikili).

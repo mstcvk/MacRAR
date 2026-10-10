@@ -62,4 +62,19 @@ if [[ "$1" == "publish" ]]; then
     gh release create "v$VERSION" "$DMG" "$ZIP" --title "MacRAR $VERSION" --notes-file RELEASE_NOTES.md
   fi
   echo "✔ Yayınlandı: $(gh release view "v$VERSION" --json url -q .url)"
+  # Homebrew tap (github.com/mstcvk/homebrew-tap): cask sürümü ve DMG sağlaması güncellenir, push edilir
+  TAP_DIR="${TAP_DIR:-$(dirname "$PWD")/homebrew-tap}"
+  if [[ -f "$TAP_DIR/Casks/macrar.rb" ]]; then
+    echo "▸ Homebrew cask güncelleniyor ($TAP_DIR)"
+    SHA=$(shasum -a 256 "$DMG" | cut -d' ' -f1)
+    sed -i '' -e "s/^  version \".*\"/  version \"$VERSION\"/" -e "s/^  sha256 \".*\"/  sha256 \"$SHA\"/" "$TAP_DIR/Casks/macrar.rb"
+    if git -C "$TAP_DIR" diff --quiet; then
+      echo "  cask zaten güncel"
+    else
+      git -C "$TAP_DIR" commit -qam "macrar $VERSION" && git -C "$TAP_DIR" push -q
+      echo "✔ brew install --cask mstcvk/tap/macrar → $VERSION"
+    fi
+  else
+    echo "  Homebrew tap bulunamadı ($TAP_DIR); cask elle güncellenmeli"
+  fi
 fi
