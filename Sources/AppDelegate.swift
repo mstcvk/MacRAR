@@ -84,6 +84,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         let files = pendingFiles
         pendingFiles = []
+        #if !APPSTORE
+        // DMG'den / İndirilenler'den çalıştırıldıysa önce Uygulamalar klasörüne taşımayı öner; taşındıysa oradan yeniden açılır
+        if Installer.offerMoveIfNeeded(openingFiles: files) { return }
+        #endif
         if files.isEmpty {
             if windows.isEmpty, !launchedForService { showEmptyWindow() }
         } else {
@@ -93,18 +97,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         #if !APPSTORE
         // Finder sağ tık komutları: bu kurulum (yol + sürüm) için henüz kurulmadıysa sessizce kur
         let stamp = Bundle.main.bundlePath + "|" + (Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "")
-        if UserDefaults.standard.string(forKey: "QuickActionsInstalledFor") != stamp, Bundle.main.bundlePath.hasPrefix("/Applications/") {
+        if UserDefaults.standard.string(forKey: "QuickActionsInstalledFor") != stamp, Installer.isInApplications {
             QuickActions.installAll()
             UserDefaults.standard.set(stamp, forKey: "QuickActionsInstalledFor")
         }
-        // Yalnızca pencereli kullanımda, günde bir kez
+        // Yalnızca pencereli kullanımda, günde bir kez; açık bir soru varsa onun kapanmasını bekler
         DispatchQueue.main.asyncAfter(deadline: .now() + 3) { if Prefs.checkUpdates { UpdateChecker.checkAutomatically() } }
         #endif
-        // İlk açılışta dosya ilişkilendirme önerisi (yalnızca /Applications'dan çalışırken)
+        // İlk açılışta dosya ilişkilendirme önerisi (yalnızca Uygulamalar klasöründen çalışırken; şifre sorusu vb. açıksa bekler)
         if Bundle.main.bundlePath.hasPrefix("/Applications/") || ProcessInfo.processInfo.environment["MACRAR_DEBUG_ASSOC"] != nil {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.8) {
-                if ProcessInfo.processInfo.environment["MACRAR_DEBUG_ASSOC"] != nil { Associations.show(firstLaunch: true) }
-                else { Associations.promptIfFirstLaunch() }
+                Dialogs.whenIdle {
+                    if ProcessInfo.processInfo.environment["MACRAR_DEBUG_ASSOC"] != nil { Associations.show(firstLaunch: true) }
+                    else { Associations.promptIfFirstLaunch() }
+                }
             }
         }
     }
@@ -217,6 +223,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             return
         }
         let wc: ArchiveWindowController
+        var created = false
         if let reuse, reuse.info == nil {
             wc = reuse
         } else if let empty = windows.first(where: { $0.info == nil && $0.archivePath == nil }) {
@@ -224,11 +231,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         } else {
             wc = ArchiveWindowController()
             windows.append(wc)
+            created = true
         }
         wc.showWindow(nil)
         wc.window?.makeKeyAndOrderFront(nil)
         wc.open(path)
-        if wc.info == nil, windows.count > 1 { wc.close() }
+        // Açılamadıysa yalnızca bu iş için yaratılan pencere kapanır; kullanıcının boş penceresi yerinde kalır
+        if wc.info == nil, created, windows.count > 1 { wc.close() }
     }
 
     /// Seçenek penceresi gösterip sıkıştırır. completion(oluşan arşiv yolu / nil)
@@ -294,8 +303,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
     }
 
-    /// Çok parçalı arşivlerde yalnızca ilk parçayı bırakır (ad.part2.rar, ad.7z.002 vb. atlanır)
-    static func dedupeVolumes(_ paths: [String]) -> [String] {
+    /// Çok parçalı arşivlerde yalnızca ilk parçayı bırakır (ad.part2.rar, ad.7z.002, ad.r00, ad.z01 vb. atlanır)
+    static func dedupeVolumes(_ rawPaths: [String]) -> [String] {
+        // Eski tarz parçalar: ad.rar + ad.r00, ad.r01… ve ad.zip + ad.z01…; ilk parça seçimdeyse diğerleri atlanır
+        let lowerSet = Set(rawPaths.map { $0.lowercased() })
+        let paths = rawPaths.filter { p in
+            let ns = p.lowercased() as NSString
+            let ext = ns.pathExtension
+            if ext.range(of: #"^r\d\d$"#, options: .regularExpression) != nil { return !lowerSet.contains(ns.deletingPathExtension + ".rar") }
+            if ext.range(of: #"^z\d\d$"#, options: .regularExpression) != nil { return !lowerSet.contains(ns.deletingPathExtension + ".zip") }
+            return true
+        }
         let regex = try! NSRegularExpression(pattern: #"^(.*)\.(?:part(\d+)\.rar|(?:7z|zip|rar|tar|bin)\.(\d{3}))$"#, options: .caseInsensitive)
         var best: [String: (Int, String)] = [:]
         var order: [String] = []
@@ -393,32 +411,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         next(0)
     }
 
-    @objc func makeDefaultForAll(_ sender: Any?) {
-        setDefaultHandler(extensions: ["rar", "zip", "7z", "tar", "gz", "tgz", "bz2", "xz", "zst", "cab", "iso", "lzh", "arj"]) { err in
-            if let err {
-                Dialogs.error(L("Varsayılan uygulama ayarlanamadı"), err.localizedDescription)
-            } else {
-                Dialogs.info(L("Tamam"), LF("%@ artık yaygın arşiv biçimleri için varsayılan uygulama.", AppInfo.name))
-            }
-        }
-    }
-
-    @objc func makeDefault(_ sender: Any?) {
-        setDefaultHandler { err in
-            if let err {
-                Dialogs.error(L("Varsayılan uygulama ayarlanamadı"), err.localizedDescription)
-            } else {
-                Dialogs.info(L("Tamam"), LF("%@ artık .rar dosyaları için varsayılan uygulama.", AppInfo.name))
-            }
-        }
-    }
-
     @objc func installQuickActionsAction(_ sender: Any?) {
         #if !APPSTORE
         let n = QuickActions.installAll()
         Dialogs.info(L("Finder hızlı eylemleri yüklendi"), LF("%d hızlı eylem kuruldu. Finder'da bir dosyaya sağ tıklayıp \"Hızlı Eylemler\" menüsünden kullanabilirsiniz.", n))
         #endif
     }
+
+    // MARK: Yardım
+
+    static let repoURL = URL(string: "https://github.com/mstcvk/MacRAR")!
+    @objc func openHelp(_ sender: Any?) {
+        NSWorkspace.shared.open(Self.repoURL.appendingPathComponent(L10n.isTurkish ? "blob/main/README.tr.md" : "blob/main/README.md"))
+    }
+    @objc func openReleaseNotes(_ sender: Any?) { NSWorkspace.shared.open(Self.repoURL.appendingPathComponent("releases")) }
+    @objc func reportIssue(_ sender: Any?) { NSWorkspace.shared.open(Self.repoURL.appendingPathComponent("issues/new")) }
 
     // MARK: Hakkında
 
@@ -528,6 +535,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         win.addItem(withTitle: L("Tümünü Öne Getir"), action: #selector(NSApplication.arrangeInFront(_:)), keyEquivalent: "")
         winItem.submenu = win
         NSApp.windowsMenu = win
+
+        let helpItem = NSMenuItem(); main.addItem(helpItem)
+        let help = NSMenu(title: L("Yardım"))
+        help.addItem(withTitle: LF("%@ Yardımı", AppInfo.name), action: #selector(openHelp(_:)), keyEquivalent: "?")
+        help.addItem(withTitle: L("Sürüm Notları"), action: #selector(openReleaseNotes(_:)), keyEquivalent: "")
+        help.addItem(.separator())
+        help.addItem(withTitle: L("Sorun Bildir…"), action: #selector(reportIssue(_:)), keyEquivalent: "")
+        helpItem.submenu = help
+        NSApp.helpMenu = help
 
         NSApp.mainMenu = main
     }

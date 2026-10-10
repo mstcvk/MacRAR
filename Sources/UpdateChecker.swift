@@ -39,10 +39,16 @@ enum UpdateChecker {
                 UserDefaults.standard.set(Date().timeIntervalSince1970, forKey: lastCheckKey)
                 let latest = tag.hasPrefix("v") ? String(tag.dropFirst()) : tag
                 let pageURL = (json["html_url"] as? String).flatMap(URL.init(string:)) ?? releasesPage
+                // "İndir" doğrudan DMG'yi indirsin; yoksa sürüm sayfası
+                let assets = (json["assets"] as? [[String: Any]]) ?? []
+                let dmgURL = assets.first { ($0["name"] as? String)?.lowercased().hasSuffix(".dmg") == true }
+                    .flatMap { $0["browser_download_url"] as? String }.flatMap(URL.init(string:))
                 let notes = (json["body"] as? String) ?? ""
                 if isNewer(latest, than: currentVersion) {
                     if !manual, UserDefaults.standard.string(forKey: skipKey) == latest { return }
-                    present(latest: latest, page: pageURL, notes: notes)
+                    let show = { present(latest: latest, page: dmgURL ?? pageURL, notes: notes) }
+                    // Otomatik denetimde açık bir soru/işlem varsa bitmesini bekle
+                    if manual { show() } else { Dialogs.whenIdle(show) }
                 } else if manual {
                     Dialogs.info(L("Güncel sürümü kullanıyorsunuz"), LF("MacRAR %@ en son sürüm.", currentVersion))
                 }

@@ -5,8 +5,8 @@
 <h1 align="center">MacRAR</h1>
 
 <p align="center">
-  A WinRAR-style archive manager for macOS, built on the official <code>rar</code>/<code>unrar</code> command-line tools from RARLAB and the official <code>7zz</code> build of 7-Zip.<br>
-  Native AppKit UI · Finder right-click Quick Actions · encrypted archives · multi-volume archives · 30+ formats
+  A WinRAR-style archive manager for macOS, built on the official <code>7zz</code> build of 7-Zip, with optional RAR creation through RARLAB's own <code>rar</code> tool.<br>
+  Native AppKit UI · Finder right-click menu · encrypted archives · multi-volume archives · 30+ formats
 </p>
 
 <p align="center">
@@ -17,9 +17,9 @@
 
 ## Why
 
-macOS has no native way to open `.rar` files, and the few GUI tools around either hide what they are doing or cannot handle encrypted or multi-part archives well. MacRAR wraps the two best command-line engines that exist for the job, RARLAB's own `unrar`/`rar` and Igor Pavlov's `7zz`, in a small native app that behaves like WinRAR on Windows: double-click to browse, right-click in Finder to extract or compress, drag files out of the archive window, get asked for a password only when one is actually needed.
+macOS has no native way to open `.rar` files, and the few GUI tools around either hide what they are doing or cannot handle encrypted or multi-part archives well. MacRAR wraps Igor Pavlov's `7zz` engine (and, if you install it, RARLAB's `rar` for creating RAR archives) in a small native app that behaves like WinRAR on Windows: double-click to browse, right-click in Finder to extract or compress, drag files out of the archive window, get asked for a password only when one is actually needed.
 
-The whole app is about 2,000 lines of Swift, needs no Xcode project (Command Line Tools are enough) and carries no third-party frameworks.
+The whole app is a few thousand lines of Swift, needs no Xcode project (Command Line Tools are enough) and carries no third-party frameworks.
 
 ## Screenshots
 
@@ -55,7 +55,7 @@ The whole app is about 2,000 lines of Swift, needs no Xcode project (Command Lin
 - RAR `.part01.rar … .partNN.rar`, 7z and ZIP `.001 … .NNN` sets are recognised. Selecting all parts in Finder and running a Quick Action processes the set once, starting from the first volume.
 
 **Creating archives**
-- Formats: RAR 5, RAR 4, 7z, ZIP, TAR, TAR.GZ, TAR.XZ, TAR.BZ2.
+- Formats: 7z, ZIP, TAR, TAR.GZ, TAR.XZ, TAR.BZ2 out of the box; RAR 5 once you point the app at your own copy of RARLAB's "RAR for macOS" (Settings → *Install RAR Tool…*, or just pick RAR when creating an archive and follow the steps).
 - Six compression levels, password (optional file-name encryption for RAR and 7z, AES-256 for 7z and ZIP), solid archives, recovery record (RAR), split volumes, SFX (RAR), delete sources after archiving.
 - Options the chosen format cannot support are disabled automatically.
 - Add files to an existing RAR/7z/ZIP/TAR archive (drag files onto the window or use ⇧⌘A) and delete entries from it (⌘⌫).
@@ -67,19 +67,20 @@ The whole app is about 2,000 lines of Swift, needs no Xcode project (Command Lin
 - Once a day MacRAR checks GitHub Releases for a newer version and offers to download it; *MacRAR → Check for Updates…* runs the check on demand. Set `MACRAR_NO_UPDATE_CHECK=1` to disable it.
 
 **Finder integration**
-- Right-click menu in Finder: *Open with MacRAR*, *MacRAR: Extract Here*, *MacRAR: Extract to Folder* (shown for archives) and *Compress with MacRAR…* (shown for any selection) appear directly in the context menu; *Extract To…*, *Test* and *Compress (RAR)* live in the *Quick Actions* submenu.
-- Registers as the owner of `.rar` and as an alternate handler for ZIP, 7z, TAR, GZ, BZ2, XZ, ZST, CAB, ISO and more, so they appear in *Open With*. One menu command makes MacRAR the default for all of them.
+- Right-click menu in Finder: *Open with MacRAR*, *MacRAR: Extract Here*, *MacRAR: Extract to Folder* (shown for archives) and *Compress with MacRAR…* (shown for any selection) appear directly in the context menu; *Extract To…*, *Test* and *Quick Compress* (default format from Settings, no dialog) live in the *Quick Actions* submenu. They are installed automatically the first time the app runs from Applications; *MacRAR → (Re)install Finder Quick Actions* repairs them.
+- Registers as the owner of `.rar` and as an alternate handler for ZIP, 7z, TAR, GZ, BZ2, XZ, ZST, CAB, ISO and more, so they appear in *Open With*. On first launch a *File Associations* dialog lets you pick which types should open with MacRAR; it is always available from the app menu.
+- If you launch MacRAR from the DMG or from Downloads it offers to move itself to Applications, because the Finder menu and the associations only work from there.
 
 ## Supported formats
 
 | Operation | Formats |
 |---|---|
 | Open / extract / test | RAR (all versions, multi-volume), ZIP/ZIPX, 7z (including `.7z.001` sets), TAR, GZ/TGZ, BZ2, XZ, ZST, LZ4, LZMA, Z, CAB, ARJ, LZH, CPIO, ISO, WIM, DEB, RPM, JAR/APK, MSI, CHM, XAR/PKG, DMG, VHD/VMDK and everything else 7-Zip can read |
-| Create | RAR 5, RAR 4, 7z, ZIP, TAR, TAR.GZ, TAR.XZ, TAR.BZ2 |
-| Add / delete entries | RAR, 7z, ZIP, TAR (not the compressed tar variants) |
+| Create | 7z, ZIP, TAR, TAR.GZ, TAR.XZ, TAR.BZ2; RAR 5 with your own RARLAB `rar` |
+| Add / delete entries | 7z, ZIP, TAR (not the compressed tar variants); RAR with your own RARLAB `rar` |
 | Passwords | RAR and 7z: data and file names (AES-256); ZIP: data (AES-256) |
 
-`.rar` goes through `unrar`/`rar`; everything else goes through `7zz`. Compressed tar archives (`tar.gz`, `tar.xz`, …) are handled with a two-stage pipeline, outer decompressor piped into the tar reader, so their contents are listed directly.
+Everything is read, extracted and tested with the bundled `7zz` (including RAR, via 7-Zip's unRAR code). Creating or modifying RAR archives runs RARLAB's `rar`, which the app does not bundle. Compressed tar archives (`tar.gz`, `tar.xz`, …) are handled with a two-stage pipeline, outer decompressor piped into the tar reader, so their contents are listed directly.
 
 ## Editions
 
@@ -97,31 +98,31 @@ The whole app is about 2,000 lines of Swift, needs no Xcode project (Command Lin
 
 ## Download
 
-Ready-made, Developer ID-signed and Apple-notarized builds are on the [Releases page](https://github.com/mstcvk/MacRAR/releases/latest): open the DMG, drag MacRAR into Applications, launch it once and choose *MacRAR → (Re)install Finder Quick Actions* to get the right-click menu. No Gatekeeper warnings.
+Ready-made, Developer ID-signed and Apple-notarized builds are on the [Releases page](https://github.com/mstcvk/MacRAR/releases/latest): open the DMG, drag MacRAR into Applications and launch it. The first launch installs the Finder right-click menu and asks which file types should open with MacRAR. No Gatekeeper warnings.
 
 Since 1.4 the app bundles only the 7-Zip engine (universal: Apple Silicon and Intel). RARLAB's `rar`/`unrar` are no longer included because their licence does not allow redistributing `rar`. RAR archives are opened with 7-Zip; to create RAR archives, MacRAR walks you through downloading "RAR for macOS" from rarlab.com and pointing the app at it.
 
 ## Requirements
 
-- macOS 13 Ventura or newer, Apple Silicon (the bundled binaries are arm64; for Intel, fetch the x64 builds and rebuild).
-- Xcode Command Line Tools (`xcode-select --install`). A full Xcode is not needed.
-- WinRAR licence for *creating* RAR archives. The bundled `rar` is RARLAB's 40-day trial; opening, extracting and testing RAR archives with `unrar` is free and unlimited. 7z/ZIP/TAR creation uses `7zz` and is free.
+- macOS 13 Ventura or newer, Apple Silicon or Intel (universal binary).
+- To build from source: Xcode Command Line Tools (`xcode-select --install`). A full Xcode is not needed.
+- Only for *creating* RAR archives: RARLAB's "RAR for macOS" (paid, 40-day trial), which the app helps you download and install. Opening, extracting and testing RAR archives is free and unlimited through 7-Zip; 7z/ZIP/TAR creation is free.
 
 ## Build and install
 
 ```bash
 git clone https://github.com/mstcvk/MacRAR.git
 cd MacRAR
-./fetch-tools.sh      # downloads rar/unrar and 7zz from rarlab.com and 7-zip.org into tools/
+./fetch-tools.sh      # downloads 7zz from 7-zip.org into tools/
 ./build.sh install    # compiles, installs /Applications/MacRAR.app, registers Finder Quick Actions
 ```
 
 `./build.sh` alone only builds `build/MacRAR.app`. The install step never kills a running MacRAR; if an extraction is in progress it waits for the app to quit.
 
-The binaries of `rar`, `unrar` and `7zz` are **not** part of this repository. `fetch-tools.sh` downloads them from their official sources so that their licences stay with their authors.
+The `7zz` binary is **not** part of this repository. `fetch-tools.sh` downloads it from its official source so that its licence stays with its author. RARLAB's `rar` is never bundled; the app installs a copy the user downloads into `~/Library/Application Support/MacRAR/rar`.
 
 After installing:
-- To make MacRAR the default app for `.rar`: MacRAR menu → *Make Default App for RAR Files*. For ZIP, 7z, TAR etc.: *Make Default for All Archives*.
+- To choose which file types open with MacRAR: MacRAR menu → *File Associations…* (also shown once on first launch).
 - If the Quick Actions do not show up in Finder: System Settings → General → Login Items & Extensions → Finder (Quick Actions) and enable them.
 
 ### Code signing
@@ -149,7 +150,7 @@ open -n -a /Applications/MacRAR.app --args --extract-here /path/archive.rar
 | `--extract-folder` | extract into a folder named after the archive |
 | `--extract-to` | ask for a destination folder once, then extract |
 | `--test` | test the archive and report |
-| `--compress` | create a RAR archive with default settings, no dialog |
+| `--compress` | create an archive with the default format and level from Settings, no dialog |
 | `--compress-dialog` | open the Create Archive dialog |
 | `--set-default` | make MacRAR the default app for `.rar` |
 | `--install-quick-actions` | (re)install the Finder Quick Actions |
@@ -157,15 +158,23 @@ open -n -a /Applications/MacRAR.app --args --extract-here /path/archive.rar
 ## Project layout
 
 ```
-Sources/RarEngine.swift      process runner, format detection, unrar/7zz listing parsers, pipelines, progress parsing
+Sources/RarEngine.swift      process runner, format detection, 7zz listing parser, pipelines, progress parsing
 Sources/Operations.swift     extract / test / compress / add / delete with password retry loops
 Sources/ArchiveWindow.swift  main window: outline view, toolbar, search, drag & drop, file promises
 Sources/Dialogs.swift        password / overwrite prompts, progress window, Create Archive dialog
-Sources/QuickActions.swift   generates the .workflow bundles for Finder Quick Actions
+Sources/Prefs.swift          user defaults and the Settings window
+Sources/QuickActions.swift   generates the .workflow bundles for the Finder right-click menu
+Sources/Associations.swift   "which files open with MacRAR" dialog (first launch + app menu)
+Sources/Installer.swift      offers to move the app to Applications when run from a DMG or Downloads
+Sources/UpdateChecker.swift  daily GitHub Releases check
+Sources/RarTools.swift       locating / installing the user's RARLAB rar
+Sources/Quarantine.swift     propagates the archive's quarantine flag to extracted files
+Sources/Localization.swift   English string table (Turkish strings are the keys)
 Sources/AppDelegate.swift    menus, document handling, command-line modes
 Sources/main.swift           entry point
-Info.plist                   bundle and document type registration
+Info.plist                   bundle, document type and UTI registration
 build.sh / fetch-tools.sh    build, install and tool download scripts
+release.sh                   Developer ID signing, notarization, DMG, GitHub release
 makeicon.swift               draws the app icon
 ```
 
@@ -182,10 +191,12 @@ Environment variables used for automated testing (no screen recording permission
 | `MACRAR_DEBUG_DETAILS=1` | open the progress window with the details log expanded |
 | `MACRAR_DEBUG_FORMAT=zip` | format for `--compress` (`7z`, `zip`, `tar`, `tar.gz`, `tar.xz`, `tar.bz2`, `rar`) |
 | `MACRAR_DEBUG_DRAG=/folder` | simulate dragging the first items of the opened archive into that folder |
+| `MACRAR_NO_UPDATE_CHECK=1` | skip the daily update check |
+| `MACRAR_NO_MOVE_PROMPT=1` | never offer to move the app to Applications |
 
 ## Third-party software
 
-- **RAR / UNRAR** © Alexander Roshal, RARLAB. `unrar` is freeware; `rar` is shareware (trial). See [rarlab.com](https://www.rarlab.com).
+- **RAR** © Alexander Roshal, RARLAB. Not bundled; the user installs their own copy for creating RAR archives. See [rarlab.com](https://www.rarlab.com).
 - **7-Zip** © Igor Pavlov, licensed under GNU LGPL with unRAR restriction and BSD 3-clause for some parts. See [7-zip.org](https://www.7-zip.org).
 
 Neither project is affiliated with MacRAR. "WinRAR" and "RAR" are trademarks of their owner.

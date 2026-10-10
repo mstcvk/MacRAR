@@ -69,10 +69,13 @@ if [[ $VARIANT == appstore ]]; then
       -c "Set :NSHumanReadableCopyright © 2026 Mesut Çevik" \
       -c "Set :CFBundleDocumentTypes:0:LSHandlerRank Default" "$APP/Contents/Info.plist"
   $PB -c "Merge AppStoreServices.plist" "$APP/Contents/Info.plist"
-  for lang in en tr; do mkdir -p "$APP/Contents/Resources/$lang.lproj"; cp "Resources/$lang.lproj/ServicesMenu.strings" "$APP/Contents/Resources/$lang.lproj/"; done
-else
-  mkdir -p "$APP/Contents/Resources/en.lproj" "$APP/Contents/Resources/tr.lproj"
 fi
+# Yerelleştirme klasörleri: InfoPlist.strings (tür adları) her iki sürümde, ServicesMenu.strings yalnızca App Store'da
+for lang in en tr; do
+  mkdir -p "$APP/Contents/Resources/$lang.lproj"
+  cp "Resources/$lang.lproj/InfoPlist.strings" "$APP/Contents/Resources/$lang.lproj/"
+  if [[ $VARIANT == appstore ]]; then cp "Resources/$lang.lproj/ServicesMenu.strings" "$APP/Contents/Resources/$lang.lproj/"; fi
+done
 echo -n "APPL????" > "$APP/Contents/PkgInfo"
 cp "$SEVENZIP" "$APP/Contents/Resources/7zz"
 cp "$SEVENZIP_LICENSE" "$APP/Contents/Resources/7zip-license.txt" 2>/dev/null || true

@@ -7,6 +7,14 @@ import UniformTypeIdentifiers
 enum Dialogs {
     static func activate() { NSApp.activate(ignoringOtherApps: true) }
 
+    /// Modal bir pencere (şifre sorusu, seçenek penceresi…) ya da bir sayfa (ilerleme) açıkken bekler;
+    /// kapanınca bloğu çalıştırır. Açılış pencerelerinin (ilişkilendirme, güncelleme) üst üste binmesini önler.
+    static func whenIdle(_ block: @escaping () -> Void) {
+        let busy = NSApp.modalWindow != nil || NSApp.windows.contains { $0.isVisible && $0.attachedSheet != nil }
+        if !busy { block(); return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { whenIdle(block) }
+    }
+
     static func askPassword(archiveName: String, wrong: Bool = false) -> String? {
         if let dbg = ProcessInfo.processInfo.environment["MACRAR_DEBUG_PASSWORD"], !wrong { return dbg == "__cancel__" ? nil : dbg }
         activate()

@@ -10,7 +10,7 @@
 	<array>
 		<dict>
 			<key>CFBundleTypeName</key>
-			<string>RAR Arşivi</string>
+			<string>RAR Archive</string>
 			<key>CFBundleTypeRole</key>
 			<string>Editor</string>
 			<key>LSHandlerRank</key>
@@ -22,7 +22,7 @@
 		</dict>
 		<dict>
 			<key>CFBundleTypeName</key>
-			<string>Arşiv</string>
+			<string>Archive</string>
 			<key>CFBundleTypeRole</key>
 			<string>Editor</string>
 			<key>LSHandlerRank</key>
@@ -80,60 +80,9 @@
 			<array>
 				<string>public.data</string>
 				<string>public.archive</string>
-				<dict>
-					<key>UTTypeConformsTo</key>
-					<array>
-						<string>public.data</string>
-						<string>public.archive</string>
-					</array>
-					<key>UTTypeDescription</key>
-					<string>Arşiv</string>
-					<key>UTTypeIdentifier</key>
-					<string>com.mesut.macrar.archive</string>
-					<key>UTTypeTagSpecification</key>
-					<dict>
-						<key>public.filename-extension</key>
-						<array>
-							<string>7z</string>
-							<string>zst</string>
-							<string>tzst</string>
-							<string>lz4</string>
-							<string>lzma</string>
-							<string>tlz</string>
-							<string>cab</string>
-							<string>arj</string>
-							<string>lzh</string>
-							<string>lha</string>
-							<string>cpio</string>
-							<string>wim</string>
-							<string>swm</string>
-							<string>esd</string>
-							<string>deb</string>
-							<string>rpm</string>
-							<string>xar</string>
-							<string>zipx</string>
-							<string>001</string>
-							<string>tbz</string>
-							<string>tbz2</string>
-							<string>txz</string>
-							<string>tgz</string>
-							<string>br</string>
-							<string>uue</string>
-							<string>squashfs</string>
-							<string>cramfs</string>
-							<string>vhd</string>
-							<string>vhdx</string>
-							<string>vmdk</string>
-							<string>qcow2</string>
-							<string>chm</string>
-							<string>msi</string>
-							<string>nupkg</string>
-						</array>
-					</dict>
-				</dict>
 			</array>
 			<key>UTTypeDescription</key>
-			<string>RAR Arşivi</string>
+			<string>RAR Archive</string>
 			<key>UTTypeIdentifier</key>
 			<string>com.rarlab.rar-archive</string>
 			<key>UTTypeTagSpecification</key>
@@ -145,11 +94,158 @@
 					<string>r01</string>
 					<string>r02</string>
 					<string>r03</string>
+					<string>r04</string>
+					<string>r05</string>
+					<string>r06</string>
+					<string>r07</string>
+					<string>r08</string>
+					<string>r09</string>
+					<string>r10</string>
+					<string>r11</string>
+					<string>r12</string>
+					<string>r13</string>
+					<string>r14</string>
+					<string>r15</string>
+					<string>r16</string>
+					<string>r17</string>
+					<string>r18</string>
+					<string>r19</string>
+					<string>r20</string>
+					<string>r21</string>
+					<string>r22</string>
+					<string>r23</string>
+					<string>r24</string>
+					<string>r25</string>
+					<string>r26</string>
+					<string>r27</string>
+					<string>r28</string>
+					<string>r29</string>
+					<string>r30</string>
+					<string>r31</string>
+					<string>r32</string>
+					<string>r33</string>
+					<string>r34</string>
+					<string>r35</string>
+					<string>r36</string>
+					<string>r37</string>
+					<string>r38</string>
+					<string>r39</string>
+					<string>r40</string>
+					<string>r41</string>
+					<string>r42</string>
+					<string>r43</string>
+					<string>r44</string>
+					<string>r45</string>
+					<string>r46</string>
+					<string>r47</string>
+					<string>r48</string>
+					<string>r49</string>
+					<string>r50</string>
+					<string>r51</string>
+					<string>r52</string>
+					<string>r53</string>
+					<string>r54</string>
+					<string>r55</string>
+					<string>r56</string>
+					<string>r57</string>
+					<string>r58</string>
+					<string>r59</string>
+					<string>r60</string>
+					<string>r61</string>
+					<string>r62</string>
+					<string>r63</string>
+					<string>r64</string>
+					<string>r65</string>
+					<string>r66</string>
+					<string>r67</string>
+					<string>r68</string>
+					<string>r69</string>
+					<string>r70</string>
+					<string>r71</string>
+					<string>r72</string>
+					<string>r73</string>
+					<string>r74</string>
+					<string>r75</string>
+					<string>r76</string>
+					<string>r77</string>
+					<string>r78</string>
+					<string>r79</string>
+					<string>r80</string>
+					<string>r81</string>
+					<string>r82</string>
+					<string>r83</string>
+					<string>r84</string>
+					<string>r85</string>
+					<string>r86</string>
+					<string>r87</string>
+					<string>r88</string>
+					<string>r89</string>
+					<string>r90</string>
+					<string>r91</string>
+					<string>r92</string>
+					<string>r93</string>
+					<string>r94</string>
+					<string>r95</string>
+					<string>r96</string>
+					<string>r97</string>
+					<string>r98</string>
+					<string>r99</string>
 				</array>
 				<key>public.mime-type</key>
 				<array>
 					<string>application/vnd.rar</string>
 					<string>application/x-rar-compressed</string>
+				</array>
+			</dict>
+		</dict>
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+				<string>public.archive</string>
+			</array>
+			<key>UTTypeDescription</key>
+			<string>Archive</string>
+			<key>UTTypeIdentifier</key>
+			<string>com.mesut.macrar.archive</string>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>7z</string>
+					<string>zst</string>
+					<string>tzst</string>
+					<string>lz4</string>
+					<string>lzma</string>
+					<string>tlz</string>
+					<string>cab</string>
+					<string>arj</string>
+					<string>lzh</string>
+					<string>lha</string>
+					<string>cpio</string>
+					<string>wim</string>
+					<string>swm</string>
+					<string>esd</string>
+					<string>deb</string>
+					<string>rpm</string>
+					<string>xar</string>
+					<string>zipx</string>
+					<string>001</string>
+					<string>tbz</string>
+					<string>tbz2</string>
+					<string>txz</string>
+					<string>tgz</string>
+					<string>br</string>
+					<string>uue</string>
+					<string>squashfs</string>
+					<string>cramfs</string>
+					<string>vhd</string>
+					<string>vhdx</string>
+					<string>vmdk</string>
+					<string>qcow2</string>
+					<string>chm</string>
+					<string>msi</string>
+					<string>nupkg</string>
 				</array>
 			</dict>
 		</dict>

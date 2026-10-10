@@ -796,15 +796,17 @@ extension ArchiveWindowController: NSOutlineViewDataSource, NSOutlineViewDelegat
         let paths = urls.map { $0.path }
         let archives = paths.filter { AppDelegate.isArchive($0) }
         let others = paths.filter { !AppDelegate.isArchive($0) }
-        if self.info == nil || others.isEmpty {
-            for a in archives { AppDelegate.shared.openArchive(a, reuse: self.info == nil ? self : nil) }
-            if !others.isEmpty, self.info == nil {
-                AppDelegate.shared.compressWithDialog(items: others, host: window) { [weak self] path in
-                    if let self, let path { AppDelegate.shared.openArchive(path, reuse: self) }
-                }
+        if self.info != nil, !others.isEmpty {
+            // Açık arşive bırakılan karışık seçim: arşiv dosyaları dahil hepsi eklenir (hiçbiri sessizce atlanmaz)
+            DispatchQueue.main.async { [weak self] in self?.addItems(paths) }
+            return
+        }
+        // Yalnızca arşivler: aç. Boş pencereye bırakılan başka dosyalar: sıkıştırma penceresi
+        for a in archives { AppDelegate.shared.openArchive(a, reuse: self.info == nil ? self : nil) }
+        if !others.isEmpty, self.info == nil {
+            AppDelegate.shared.compressWithDialog(items: others, host: window) { [weak self] path in
+                if let self, let path { AppDelegate.shared.openArchive(path, reuse: self) }
             }
-        } else {
-            DispatchQueue.main.async { [weak self] in self?.addItems(others) }
         }
     }
 

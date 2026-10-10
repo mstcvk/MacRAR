@@ -2,7 +2,7 @@
 
 <h1 align="center">MacRAR</h1>
 
-<p align="center">macOS için WinRAR tarzı arşiv yöneticisi. RARLAB'ın resmi <code>rar</code>/<code>unrar</code> komut satırı araçlarını ve 7-Zip'in resmi <code>7zz</code> aracını yerel (AppKit) bir Mac uygulamasında birleştirir.</p>
+<p align="center">macOS için WinRAR tarzı arşiv yöneticisi. 7-Zip'in resmi <code>7zz</code> motorunu yerel (AppKit) bir Mac uygulamasına sarar; RAR oluşturmak için isteğe bağlı olarak RARLAB'ın kendi <code>rar</code> aracını kullanır.</p>
 
 <p align="center"><a href="README.md">🇬🇧 English</a></p>
 
@@ -10,9 +10,9 @@
 
 ## Neden
 
-macOS'ta `.rar` dosyalarını açacak yerleşik bir araç yoktur; mevcut uygulamalar ise şifreli ya da çok parçalı arşivlerde zorlanır. MacRAR bu iş için var olan en iyi iki motoru, RARLAB'ın `unrar`/`rar` ikilisini ve Igor Pavlov'un `7zz` aracını, Windows'taki WinRAR gibi davranan küçük bir yerel uygulamaya sarar: çift tıklayıp içeriğe bakarsınız, Finder'da sağ tıklayıp çıkartır veya sıkıştırırsınız, arşiv penceresinden dosyaları sürükleyip çıkarırsınız, şifre yalnızca gerçekten gerektiğinde sorulur.
+macOS'ta `.rar` dosyalarını açacak yerleşik bir araç yoktur; mevcut uygulamalar ise şifreli ya da çok parçalı arşivlerde zorlanır. MacRAR Igor Pavlov'un `7zz` motorunu (ve kurarsanız RAR oluşturmak için RARLAB'ın `rar` aracını) Windows'taki WinRAR gibi davranan küçük bir yerel uygulamaya sarar: çift tıklayıp içeriğe bakarsınız, Finder'da sağ tıklayıp çıkartır veya sıkıştırırsınız, arşiv penceresinden dosyaları sürükleyip çıkarırsınız, şifre yalnızca gerçekten gerektiğinde sorulur.
 
-Uygulama yaklaşık 2.000 satır Swift'tir, Xcode projesi gerektirmez (Command Line Tools yeterlidir) ve üçüncü taraf kütüphane kullanmaz.
+Uygulama birkaç bin satır Swift'tir, Xcode projesi gerektirmez (Command Line Tools yeterlidir) ve üçüncü taraf kütüphane kullanmaz.
 
 ## Ekran görüntüleri
 
@@ -29,11 +29,11 @@ Uygulama yaklaşık 2.000 satır Swift'tir, Xcode projesi gerektirmez (Command L
 | İşlem | Biçimler |
 |---|---|
 | Açma / çıkartma / test | RAR (tüm sürümler, çok parçalı `.partN.rar`), ZIP/ZIPX, 7z (`.7z.001` parçalı dahil), TAR, GZ/TGZ, BZ2, XZ, ZST, LZ4, LZMA, Z, CAB, ARJ, LZH, CPIO, ISO, WIM, DEB, RPM, JAR/APK, MSI, CHM, XAR/PKG, DMG, VHD/VMDK ve 7-Zip'in okuduğu diğer biçimler |
-| Oluşturma | RAR 5, RAR 4, 7z, ZIP, TAR, TAR.GZ, TAR.XZ, TAR.BZ2 |
-| Ekleme / silme | RAR, 7z, ZIP, TAR (tar.gz türevlerinde desteklenmez) |
+| Oluşturma | 7z, ZIP, TAR, TAR.GZ, TAR.XZ, TAR.BZ2; kendi RARLAB `rar` aracınızla RAR 5 |
+| Ekleme / silme | 7z, ZIP, TAR (tar.gz türevlerinde desteklenmez); kendi RARLAB `rar` aracınızla RAR |
 | Şifre | RAR ve 7z: içerik + dosya adları (AES-256); ZIP: içerik (AES-256) |
 
-`.rar` dosyaları için `unrar`/`rar`, diğer her şey için `7zz` kullanılır. `tar.gz` türü arşivler iki aşamalı boru hattıyla (dış katman → iç tar) açılır.
+Okuma, çıkartma ve test (RAR dahil, 7-Zip'in unRAR kodu ile) paketlenmiş `7zz` ile yapılır. RAR oluşturma ve değiştirme için RARLAB'ın `rar` aracı çalıştırılır; bu araç uygulamayla paketlenmez, kullanıcı kendisi indirir. `tar.gz` türü arşivler iki aşamalı boru hattıyla (dış katman → iç tar) açılır.
 
 ## Özellikler
 
@@ -42,39 +42,41 @@ Uygulama yaklaşık 2.000 satır Swift'tir, Xcode projesi gerektirmez (Command L
 - **Ayarlar (⌘,):** Hızlı sıkıştırma için varsayılan biçim ve düzey, çıkartma/sıkıştırma sonrası Finder'da gösterme, güncelleme denetimi, arayüz dili.
 - **Şifreli arşivler:** İçeriği şifreli ve dosya adları şifreli arşivler desteklenir. Şifre gerektiğinde sorulur, yanlışsa tekrar sorulur.
 - **Çıkartma:** Buraya çıkart (⌘E), arşiv adıyla klasöre çıkart (⌥⌘E), şuraya çıkart… (⇧⌘E), yalnızca seçilenleri çıkart. Hedefte aynı adlı dosya varsa üzerine yaz / yeniden adlandır / iptal sorulur.
-- **Sıkıştırma:** Biçim seçimi (RAR5/RAR4/7z/ZIP/TAR/TAR.GZ/TAR.XZ/TAR.BZ2), 6 sıkıştırma düzeyi, şifre (isteğe bağlı dosya adlarını da şifreleme), katı arşiv, kurtarma kaydı, parçalara bölme, SFX, kaynakları silme. Biçimin desteklemediği seçenekler otomatik kapanır.
+- **Sıkıştırma:** Biçim seçimi (7z/ZIP/TAR/TAR.GZ/TAR.XZ/TAR.BZ2; RARLAB'ın “RAR for macOS” aracını gösterirseniz RAR 5), 6 sıkıştırma düzeyi, şifre (isteğe bağlı dosya adlarını da şifreleme), katı arşiv, kurtarma kaydı, parçalara bölme, SFX, kaynakları silme. Biçimin desteklemediği seçenekler otomatik kapanır.
 - **Finder'a sürükleyerek çıkartma:** Arşiv penceresindeki öğeleri bir Finder klasörüne veya masaüstüne bırakın; MacRAR bir kez sorar, onaylarsanız öğeleri ilerleme penceresiyle oraya çıkartır.
 - **İlerleme penceresi:** Toplam yüzde, tahmini kalan süre, geçen süre, işlenen dosya ve "Detayları Göster" ile açılan dosya listesi.
 - **Çok parçalı arşivler:** `.part01.rar … .partNN.rar` ve `.7z.001 … .NNN` setleri tanınır; Finder'da tüm parçaları seçseniz bile set bir kez, ilk parçadan başlayarak işlenir.
 - **Diğer:** Arşivi test et (⌘T), arşive dosya ekle (⇧⌘A), arşivden sil (⌘⌫), arşiv bilgisi (⌘I), arşiv içinde arama, dosyayı çift tıklayıp doğrudan açma, pencereye arşiv sürükleyip açma, pencereye dosya sürükleyip arşive ekleme.
 - **Güncelleme:** Uygulama günde bir kez GitHub Releases'ı denetler, yeni sürüm varsa indirmeyi önerir; *MacRAR → Güncellemeleri Denetle…* ile elle de denetlenir. `MACRAR_NO_UPDATE_CHECK=1` ile kapatılabilir.
 - **Dil:** Arayüz sistem diline göre Türkçe veya İngilizce açılır (Sistem Ayarları → Genel → Dil ve Bölge'deki uygulamaya özel dil seçimi de dikkate alınır). `MACRAR_LANG=tr|en` ile zorlanabilir.
-- **Finder sağ tık menüsü:** Arşiv seçiliyken doğrudan menüde "MacRAR ile Aç", "MacRAR: Buraya Çıkart", "MacRAR: Klasöre Çıkart"; her türlü seçimde "MacRAR ile Sıkıştır…" görünür. "Hızlı Eylemler" alt menüsünde ise "MacRAR • Şuraya Çıkart…", "MacRAR • Test Et" ve soru sormadan RAR oluşturan "MacRAR • Sıkıştır (RAR)" bulunur.
+- **Finder sağ tık menüsü:** Arşiv seçiliyken doğrudan menüde "MacRAR ile Aç", "MacRAR: Buraya Çıkart", "MacRAR: Klasöre Çıkart"; her türlü seçimde "MacRAR ile Sıkıştır…" görünür. "Hızlı Eylemler" alt menüsünde ise "MacRAR • Şuraya Çıkart…", "MacRAR • Test Et" ve Ayarlar'daki varsayılan biçimle soru sormadan arşiv oluşturan "MacRAR • Hızlı Sıkıştır" bulunur. Komutlar uygulama Uygulamalar klasöründen ilk açıldığında kendiliğinden kurulur; *MacRAR → Finder Hızlı Eylemlerini (Yeniden) Yükle* onarır.
+- **Dosya ilişkilendirme:** İlk açılışta hangi dosya türlerinin MacRAR ile açılacağını soran bir pencere gelir; sonradan *MacRAR → Dosya İlişkilendirmeleri…* ile değiştirilir.
+- **Uygulamalar klasörüne taşıma:** DMG'den ya da İndirilenler'den çalıştırılınca uygulama kendini Uygulamalar klasörüne taşımayı önerir (sağ tık menüsü ve ilişkilendirmeler yalnızca oradan çalışır).
 
 ## İndirme
 
-Developer ID ile imzalı ve Apple tarafından notarize edilmiş hazır sürümler [Releases sayfasında](https://github.com/mstcvk/MacRAR/releases/latest): DMG'yi açın, MacRAR'ı Uygulamalar klasörüne sürükleyin, bir kez çalıştırıp *MacRAR → Finder Hızlı Eylemlerini (Yeniden) Yükle* komutunu verin. Gatekeeper uyarısı çıkmaz.
+Developer ID ile imzalı ve Apple tarafından notarize edilmiş hazır sürümler [Releases sayfasında](https://github.com/mstcvk/MacRAR/releases/latest): DMG'yi açın, MacRAR'ı Uygulamalar klasörüne sürükleyin ve çalıştırın. İlk açılış Finder sağ tık menüsünü kurar ve hangi dosya türlerinin MacRAR ile açılacağını sorar. Gatekeeper uyarısı çıkmaz.
 
 ## Gereksinimler
 
-- macOS 13 Ventura veya üstü, Apple Silicon (ikililer arm64'tür; Intel için x64 sürümlerini indirip yeniden derleyin).
-- Xcode Command Line Tools (`xcode-select --install`). Tam Xcode gerekmez.
-- RAR arşivi *oluşturmak* için WinRAR lisansı. Paketlenen `rar` RARLAB'ın 40 günlük deneme sürümüdür; `unrar` ile RAR açma, çıkartma ve test süresiz ücretsizdir. 7z/ZIP/TAR oluşturma `7zz` ile yapılır ve ücretsizdir.
+- macOS 13 Ventura veya üstü, Apple Silicon ya da Intel (evrensel ikili).
+- Kaynaktan derlemek için Xcode Command Line Tools (`xcode-select --install`). Tam Xcode gerekmez.
+- Yalnızca RAR arşivi *oluşturmak* için RARLAB'ın “RAR for macOS” aracı (ücretli, 40 gün deneme); uygulama indirme ve kurma adımlarında yol gösterir. RAR açma, çıkartma ve test 7-Zip ile süresiz ücretsizdir; 7z/ZIP/TAR oluşturma ücretsizdir.
 
 ## Derleme ve kurulum
 
 ```bash
 git clone https://github.com/mstcvk/MacRAR.git
 cd MacRAR
-./fetch-tools.sh      # rar/unrar ve 7zz'yi rarlab.com ve 7-zip.org'dan tools/ klasörüne indirir
+./fetch-tools.sh      # 7zz'yi 7-zip.org'dan tools/ klasörüne indirir
 ./build.sh install    # derler, /Applications/MacRAR.app olarak kurar, Finder hızlı eylemlerini yükler
 ```
 
 Yalnızca derlemek için `./build.sh` (çıktı: `build/MacRAR.app`). Kurulum adımı çalışan bir MacRAR'ı asla kapatmaz; devam eden bir çıkartma varsa uygulamanın kapanmasını bekler.
 
-`rar`, `unrar` ve `7zz` ikilileri bu depoda **bulunmaz**; `fetch-tools.sh` onları resmi kaynaklarından indirir, böylece lisansları sahiplerinde kalır.
+`7zz` ikilisi bu depoda **bulunmaz**; `fetch-tools.sh` onu resmi kaynağından indirir, böylece lisansı sahibinde kalır. RARLAB'ın `rar` aracı hiçbir zaman paketlenmez; kullanıcının indirdiği kopya `~/Library/Application Support/MacRAR/rar` altına kurulur.
 
-.rar dosyaları için varsayılan uygulama yapmak: uygulama menüsünden **"RAR Dosyaları İçin Varsayılan Uygulama Yap"**; ZIP, 7z, TAR vb. için **"Tüm Arşivler İçin Varsayılan Yap"** veya Finder'da bir .rar dosyasına sağ tık → Bilgi Al → Birlikte Aç → MacRAR → Tümünü Değiştir.
+Hangi dosya türlerinin MacRAR ile açılacağını seçmek: uygulama menüsünden **"Dosya İlişkilendirmeleri…"** (ilk açılışta bir kez kendiliğinden sorulur).
 
 Hızlı eylemler Finder menüsünde görünmezse: Sistem Ayarları → Genel → Oturum Açma Öğeleri ve Uzantılar → Finder (Hızlı Eylemler) altından etkinleştirin.
 
@@ -95,15 +97,22 @@ Hızlı eylemler uygulamayı şu şekilde çağırır:
 open -n -a /Applications/MacRAR.app --args --extract-here /yol/arsiv.rar
 ```
 
-Desteklenen bayraklar: `--extract-here`, `--extract-folder`, `--extract-to`, `--test`, `--compress`, `--compress-dialog`, `--set-default`, `--install-quick-actions`.
+Desteklenen bayraklar: `--extract-here`, `--extract-folder`, `--extract-to`, `--test`, `--compress` (Ayarlar'daki varsayılan biçimle, soru sormadan), `--compress-dialog`, `--set-default`, `--install-quick-actions`.
 
 ## Dosya yapısı
 
-- `Sources/RarEngine.swift` – rar/unrar/7zz çalıştırma, biçim algılama, `unrar lt` ve `7zz l -slt` çıktılarını ayrıştırma, boru hattı ve ilerleme takibi
+- `Sources/RarEngine.swift` – 7zz/rar çalıştırma, biçim algılama, `7zz l -slt` çıktısını ayrıştırma, boru hattı ve ilerleme takibi
 - `Sources/Operations.swift` – çıkart / test / sıkıştır / ekle / sil işlemleri, şifre döngüsü
 - `Sources/ArchiveWindow.swift` – ana pencere, ağaç görünümü, araç çubuğu, sürükle-bırak
 - `Sources/Dialogs.swift` – şifre, ilerleme ve sıkıştırma seçenekleri pencereleri
-- `Sources/QuickActions.swift` – Finder hızlı eylem (.workflow) üretimi
+- `Sources/QuickActions.swift` – Finder sağ tık menüsü (.workflow) üretimi
+- `Sources/Associations.swift` – “Hangi dosyalar MacRAR ile açılsın?” penceresi
+- `Sources/Installer.swift` – DMG/İndirilenler'den açılınca Uygulamalar klasörüne taşıma önerisi
+- `Sources/UpdateChecker.swift` – günlük GitHub Releases denetimi
+- `Sources/RarTools.swift` – kullanıcının RARLAB `rar` aracını bulma / kurma
+- `Sources/Quarantine.swift` – arşivin karantina bayrağını çıkartılan dosyalara aktarma
+- `Sources/Prefs.swift` – ayarlar ve Ayarlar penceresi
+- `Sources/Localization.swift` – İngilizce metin tablosu
 - `Sources/AppDelegate.swift`, `Sources/main.swift` – uygulama yaşam döngüsü, menüler, komut satırı modu
 - `makeicon.swift` – uygulama simgesi üreteci
 
@@ -120,10 +129,12 @@ Otomatik test için ortam değişkenleri (ekran kaydı izni gerektirmez):
 | `MACRAR_DEBUG_DETAILS=1` | ilerleme penceresini detay listesi açık başlatır |
 | `MACRAR_DEBUG_FORMAT=zip` | `--compress` için biçim (`7z`, `zip`, `tar`, `tar.gz`, `tar.xz`, `tar.bz2`, `rar`) |
 | `MACRAR_DEBUG_DRAG=/klasör` | açılan arşivin ilk öğelerini o klasöre sürüklemiş gibi davranır |
+| `MACRAR_NO_UPDATE_CHECK=1` | günlük güncelleme denetimini atlar |
+| `MACRAR_NO_MOVE_PROMPT=1` | Uygulamalar klasörüne taşıma önerisini kapatır |
 
 ## Üçüncü taraf yazılımlar
 
-- **RAR / UNRAR** © Alexander Roshal, RARLAB. `unrar` ücretsizdir; `rar` deneme sürümüdür. Bkz. [rarlab.com](https://www.rarlab.com).
+- **RAR** © Alexander Roshal, RARLAB. Paketlenmez; RAR oluşturmak isteyen kullanıcı kendi kopyasını kurar. Bkz. [rarlab.com](https://www.rarlab.com).
 - **7-Zip** © Igor Pavlov, GNU LGPL (unRAR kısıtlamasıyla) ve bazı bölümler için BSD 3-clause lisansı. Bkz. [7-zip.org](https://www.7-zip.org).
 
 ## Geliştirici
@@ -133,8 +144,3 @@ Otomatik test için ortam değişkenleri (ekran kaydı izni gerektirmez):
 ## Lisans
 
 MacRAR kaynak kodu [MIT Lisansı](LICENSE) ile yayımlanmıştır.
-
-## Notlar
-
-- Uygulama RARLAB'ın `rar` ikilisini kullanır; `rar` deneme sürümüdür (40 gün), `unrar` ücretsizdir. RAR çıkartma/görüntüleme için lisans gerekmez, RAR oluşturma için WinRAR lisansı gerekir. 7z/ZIP/TAR oluşturma `7zz` ile yapılır ve tamamen ücretsizdir (LGPL).
-- Uygulama ad-hoc imzalıdır (yalnızca bu Mac'te çalışır). Başka bir Mac'e taşımak için orada yeniden derleyin.

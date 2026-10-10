@@ -64,19 +64,15 @@ enum L10n {
         "\"%@\" \"%@\" klasörüne çıkartılsın mı?": "Extract \"%@\" to \"%@\"?", "%d öğe \"%@\" klasörüne çıkartılsın mı?": "Extract %d item(s) to \"%@\"?",
         "Arşiv: %@\nHedef: %@\nÖğeler: %@": "Archive: %@\nDestination: %@\nItems: %@",
         // Menüler
-        "MacRAR Hakkında": "About MacRAR", "RAR Dosyaları İçin Varsayılan Uygulama Yap": "Make Default App for RAR Files",
-        "Tüm Arşivler (ZIP, 7z, TAR…) İçin Varsayılan Yap": "Make Default for All Archives (ZIP, 7z, TAR…)",
         "Finder Hızlı Eylemlerini (Yeniden) Yükle": "(Re)install Finder Quick Actions",
-        "MacRAR'ı Gizle": "Hide MacRAR", "Diğerlerini Gizle": "Hide Others", "Tümünü Göster": "Show All", "MacRAR'dan Çık": "Quit MacRAR",
+        "Diğerlerini Gizle": "Hide Others", "Tümünü Göster": "Show All",
+        "Yardım": "Help", "%@ Yardımı": "%@ Help", "Sürüm Notları": "Release Notes", "Sorun Bildir…": "Report a Problem…",
         "Dosya": "File", "Arşiv Aç…": "Open Archive…", "Yeni Arşiv Oluştur…": "New Archive…", "Buraya Çıkart": "Extract Here",
         "Klasöre Çıkart": "Extract to Folder", "Şuraya Çıkart…": "Extract To…", "Seçilenleri Buraya Çıkart": "Extract Selected Here",
         "Seçilenleri Şuraya Çıkart…": "Extract Selected To…", "Arşivi Test Et": "Test Archive", "Arşiv Bilgisi": "Archive Info",
         "Arşive Dosya Ekle…": "Add Files to Archive…", "Seçilenleri Arşivden Sil": "Delete Selected from Archive", "Kapat": "Close",
         "Düzen": "Edit", "Geri Al": "Undo", "Yinele": "Redo", "Kes": "Cut", "Kopyala": "Copy", "Yapıştır": "Paste", "Tümünü Seç": "Select All",
         "Pencere": "Window", "Küçült": "Minimize", "Büyüt": "Zoom", "Tümünü Öne Getir": "Bring All to Front",
-        "Varsayılan uygulama ayarlanamadı": "Could not set the default application",
-        "MacRAR artık yaygın arşiv biçimleri için varsayılan uygulama.": "MacRAR is now the default app for common archive formats.",
-        "MacRAR artık .rar dosyaları için varsayılan uygulama.": "MacRAR is now the default app for .rar files.",
         "Finder hızlı eylemleri yüklendi": "Finder Quick Actions installed",
         "%d hızlı eylem kuruldu. Finder'da bir dosyaya sağ tıklayıp \"Hızlı Eylemler\" menüsünden kullanabilirsiniz.": "%d Quick Action(s) installed. Right-click a file in Finder and use the \"Quick Actions\" menu.",
         "Geliştirici: Mesut Çevik\n": "Developer: Mesut Çevik\n",
@@ -88,7 +84,15 @@ enum L10n {
         // Görünüm / klavye
         "Görünüm": "View", "Tümünü Genişlet": "Expand All", "Tümünü Daralt": "Collapse All", "Yenile": "Refresh", "Arşivi Finder'da Göster": "Show Archive in Finder",
         "Göz At": "Quick Look", "Son Kullanılanlar": "Open Recent", "Listeyi Temizle": "Clear Menu", "Yeni Arşiv…": "New Archive…",
-        "Atla": "Skip", "Şifreyi göster": "Show password", "Ayrıntıları Kopyala": "Copy Details", "Ayrıntılar:": "Details:",
+        "Atla": "Skip", "Şifreyi göster": "Show password", "Ayrıntıları Kopyala": "Copy Details",
+        // Uygulamalar klasörüne taşıma (DMG / İndirilenler'den açılınca)
+        "%@ Uygulamalar klasörüne taşınsın mı?": "Move %@ to the Applications folder?",
+        "%@ şu anda disk görüntüsünden çalışıyor. Finder sağ tık menüsü ve dosya ilişkilendirmeleri için uygulamanın Uygulamalar klasöründe olması gerekir. Taşıdıktan sonra disk görüntüsünü çıkarabilirsiniz.":
+            "%@ is running from the disk image. The Finder right-click menu and file associations only work when the app lives in the Applications folder. You can eject the disk image after moving.",
+        "%@ şu anda “%@” klasöründe. Finder sağ tık menüsü ve dosya ilişkilendirmeleri için uygulamanın Uygulamalar klasöründe olması gerekir.":
+            "%@ is currently in the “%@” folder. The Finder right-click menu and file associations only work when the app lives in the Applications folder.",
+        "Uygulamalar Klasörüne Taşı": "Move to Applications", "Buradan Çalıştır": "Run from Here", "Bir daha sorma": "Don't ask again",
+        "Uygulamalar klasörüne taşınamadı": "Could not move to the Applications folder",
         // RAR aracı / klasör izinleri / ad
         "RAR 5 (RAR aracı gerekir)": "RAR 5 (needs RAR tool)",
         "RARLAB'ın RAR aracını gerektirir; Oluştur'a basınca indirme adımları gösterilir.": "Needs RARLAB's RAR tool; pressing Create shows how to get it.",
@@ -114,8 +118,6 @@ enum L10n {
         "Kurulu: %@": "Installed: %@", "RAR Aracını Kaldır": "Remove RAR Tool", "Kurulu değil (RAR oluşturmak için gerekir)": "Not installed (needed to create RAR)",
         "RAR Aracını Kur…": "Install RAR Tool…",
         "%@ Hakkında": "About %@", "%@'ı Gizle": "Hide %@", "%@'dan Çık": "Quit %@",
-        "%@ artık yaygın arşiv biçimleri için varsayılan uygulama.": "%@ is now the default app for common archive formats.",
-        "%@ artık .rar dosyaları için varsayılan uygulama.": "%@ is now the default app for .rar files.",
         "\n\n7-Zip © Igor Pavlov (GNU LGPL)\nRAR açma: unRAR kodu © Alexander Roshal": "\n\n7-Zip © Igor Pavlov (GNU LGPL)\nRAR extraction: unRAR code © Alexander Roshal",
         "MacRAR • Hızlı Sıkıştır": "MacRAR • Quick Compress",
         // Dosya ilişkilendirme
@@ -138,12 +140,12 @@ enum L10n {
         "İndir": "Download", "Daha Sonra": "Later", "Bu Sürümü Atla": "Skip This Version",
         // Hızlı eylemler
         "MacRAR ile Aç": "Open with MacRAR", "MacRAR: Buraya Çıkart": "MacRAR: Extract Here", "MacRAR: Klasöre Çıkart": "MacRAR: Extract to Folder",
-        "MacRAR ile Sıkıştır…": "Compress with MacRAR…", "MacRAR • Buraya Çıkart": "MacRAR • Extract Here", "MacRAR • Klasöre Çıkart": "MacRAR • Extract to Folder",
-        "MacRAR • Şuraya Çıkart…": "MacRAR • Extract To…", "MacRAR • Test Et": "MacRAR • Test", "MacRAR • Sıkıştır (RAR)": "MacRAR • Compress (RAR)",
-        "MacRAR • Arşiv Oluştur…": "MacRAR • Create Archive…",
+        "MacRAR ile Sıkıştır…": "Compress with MacRAR…",
+        "MacRAR • Şuraya Çıkart…": "MacRAR • Extract To…", "MacRAR • Test Et": "MacRAR • Test",
         // Sıkıştırma penceresi
         "TAR (sıkıştırmasız)": "TAR (uncompressed)", "Arşiv Oluştur": "Create Archive", "/yol/arşiv.rar": "/path/archive.rar", "Gözat…": "Browse…",
-        "Depola (sıkıştırma yok)": "Store (no compression)", "En hızlı": "Fastest", "Hızlı": "Fast", "İyi": "Good", "En iyi": "Best",
+        "Depola (sıkıştırma yok)": "Store (no compression)", "En hızlı": "Fastest", "Hızlı": "Fast", "Normal": "Normal", "İyi": "Good", "En iyi": "Best",
+        "Test": "Test",
         "Boş bırakılırsa şifrelenmez": "Leave empty for no encryption", "Şifreyi tekrar girin": "Repeat the password",
         "örn. 100M, 1G, 700M  (boş = bölme)": "e.g. 100M, 1G, 700M  (empty = no split)", "%d öğe sıkıştırılacak": "%d item(s) to compress",
         "Arşiv:": "Archive:", "Biçim:": "Format:", "Sıkıştırma:": "Compression:", "Şifre:": "Password:", "Şifre (tekrar):": "Password (repeat):",
@@ -152,7 +154,6 @@ enum L10n {
         "Kendiliğinden açılan (SFX) arşiv": "Self-extracting (SFX) archive", "Sıkıştırdıktan sonra kaynak dosyaları sil": "Delete source files after archiving",
         "Oluştur": "Create", "Arşivi Kaydet": "Save Archive", "Şifreler eşleşmiyor": "Passwords do not match", "Her iki şifre alanına aynı şifreyi girin.": "Enter the same password in both fields.",
         "En iyi sıkıştırma ve kurtarma kaydı; WinRAR 5+ ile açılır.": "Best compression and recovery record; opens with WinRAR 5+.",
-        "Eski WinRAR sürümleriyle uyumlu.": "Compatible with older WinRAR versions.",
         "Ücretsiz, yüksek sıkıştırma; AES-256 şifre ve ad şifreleme destekler.": "Free, high compression; supports AES-256 passwords and name encryption.",
         "En yaygın biçim; şifre AES-256 ile uygulanır (eski açıcılar desteklemeyebilir).": "Most common format; passwords use AES-256 (older extractors may not support it).",
         "Sıkıştırma yapmaz, yalnızca paketler.": "No compression, just packing.",
