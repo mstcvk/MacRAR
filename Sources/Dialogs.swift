@@ -534,7 +534,9 @@ struct CompressOptions {
 
         case .tgz, .txz, .tbz2:
             let outer: String = format == .tgz ? "gzip" : (format == .txz ? "xz" : "bzip2")
-            let tmpTar = NSTemporaryDirectory() + "Archiver-\(UUID().uuidString).tar"
+            let tmpDir = TempDirs.make("tgz")
+            try? FileManager.default.createDirectory(atPath: tmpDir, withIntermediateDirectories: true)
+            let tmpTar = (tmpDir as NSString).appendingPathComponent("archive.tar")
             var step1 = ["a", "-y", "-bsp1", "-bb1", "-ttar"]
             if deleteAfter { step1.append("-sdel") }
             let step2 = ["a", "-y", "-bsp1", "-bb1", "-t\(outer)", "-mx=\(mx)", "--", archivePath, tmpTar]

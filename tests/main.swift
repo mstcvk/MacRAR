@@ -89,6 +89,16 @@ expect(ArchivePath.isInsideDir("a", of: ["a"]), false, "inside: dir is not insid
 expect(ArchivePath.isInsideDir("./dir/a.txt", of: ["./dir"]), true, "inside: raw ./ prefix")
 expect(ArchivePath.isInsideDir("a/b/c", of: ["a/b"]), true, "inside: nested")
 
+// Çok parçalı arşivler: yalnızca açılacak ilk parça kalır
+expect(Volumes.dedupe(["a.part02.rar", "a.part01.rar"]), ["a.part01.rar"], "volumes: rar parts keep the lowest")
+expect(Volumes.dedupe(["x.7z.002", "x.7z.001", "x.7z.003"]), ["x.7z.001"], "volumes: numbered sets")
+expect(Volumes.dedupe(["a.rar", "a.r00", "a.r01"]), ["a.rar"], "volumes: old-style r00 dropped")
+expect(Volumes.dedupe(["a.zip", "a.z01"]), ["a.zip"], "volumes: old-style z01 dropped")
+expect(Volumes.dedupe(["photo.jpg", "notes.txt"]), ["photo.jpg", "notes.txt"], "volumes: plain files untouched")
+expect(Volumes.dedupe(["b.part10.rar", "b.part2.rar"]), ["b.part2.rar"], "volumes: numeric, not lexical")
+expect(Volumes.dedupe(["c.part1.rar", "d.txt", "c.part2.rar"]), ["d.txt", "c.part1.rar"], "volumes: plain files first")
+expect(Volumes.dedupe(["Z.PART01.RAR", "Z.PART02.RAR"]), ["Z.PART01.RAR"], "volumes: case-insensitive")
+
 if failures > 0 {
     print("\(failures) of \(checks) checks FAILED")
     exit(1)
