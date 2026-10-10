@@ -42,7 +42,7 @@ Okuma, çıkartma ve test (RAR dahil, 7-Zip'in unRAR kodu ile) paketlenmiş `7zz
 
 ## Özellikler
 
-- **Arşiv görüntüleme:** Arşivi çift tıklayınca içeriği klasör ağacı olarak açılır (ad, şifreli işareti, boyut, paketli boyut, oran, tarih, CRC). Sütun başlığına tıklayarak sıralanır; sütun genişlikleri ve sütun sırası hatırlanır.
+- **Arşiv görüntüleme:** Arşivi çift tıklayınca içeriği klasör ağacı olarak açılır (ad, şifreli işareti, boyut, paketli boyut, oran, tarih, CRC). Sütun başlığına tıklayarak sıralanır; genişlikler ve sıralama hatırlanır.
 - **Klavye ve menüler:** Return ile seçili dosya açılır, Space ile Hızlı Bakış önizlemesi gelir; Görünüm menüsünde Tümünü Genişlet/Daralt, Yenile ve Arşivi Finder'da Göster; Dosya → Son Kullanılanlar.
 - **Ayarlar (⌘,):** Hızlı sıkıştırma için varsayılan biçim ve düzey, çıkartma/sıkıştırma sonrası Finder'da gösterme, güncelleme denetimi, arayüz dili.
 - **Şifreli arşivler:** İçeriği şifreli ve dosya adları şifreli arşivler desteklenir. Şifre gerektiğinde sorulur, yanlışsa tekrar sorulur.
@@ -54,11 +54,9 @@ Okuma, çıkartma ve test (RAR dahil, 7-Zip'in unRAR kodu ile) paketlenmiş `7zz
 - **Diğer:** Arşivi test et (⌘T), arşive dosya ekle (⇧⌘A), arşivden sil (⌘⌫), arşiv bilgisi (⌘I), arşiv içinde arama, dosyayı çift tıklayıp doğrudan açma, pencereye arşiv sürükleyip açma, pencereye dosya sürükleyip arşive ekleme.
 - **Güncelleme:** Uygulama günde bir kez GitHub Releases'ı denetler, yeni sürüm varsa indirmeyi önerir; *MacRAR → Güncellemeleri Denetle…* ile elle de denetlenir. `MACRAR_NO_UPDATE_CHECK=1` ile kapatılabilir.
 - **Dil:** Arayüz sistem diline göre Türkçe veya İngilizce açılır (Sistem Ayarları → Genel → Dil ve Bölge'deki uygulamaya özel dil seçimi de dikkate alınır). `MACRAR_LANG=tr|en` ile zorlanabilir.
-- **Finder sağ tık menüsü:** Arşiv seçiliyken doğrudan menüde "MacRAR ile Aç", "MacRAR: Buraya Çıkart", "MacRAR: Klasöre Çıkart"; her türlü seçimde "MacRAR ile Sıkıştır…" görünür. "Hızlı Eylemler" alt menüsünde ise "MacRAR • Şuraya Çıkart…", "MacRAR • Test Et" ve Ayarlar'daki varsayılan biçimle seçenek penceresi açmadan arşiv oluşturan "MacRAR • Hızlı Sıkıştır" bulunur. Komutlar uygulama Uygulamalar klasöründen ilk açıldığında kendiliğinden kurulur; *MacRAR → Finder Hızlı Eylemlerini (Yeniden) Yükle* onarır.
+- **Finder sağ tık menüsü:** Arşiv seçiliyken doğrudan menüde "MacRAR ile Aç", "MacRAR: Buraya Çıkart", "MacRAR: Klasöre Çıkart"; her türlü seçimde "MacRAR ile Sıkıştır…" görünür. "Hızlı Eylemler" alt menüsünde ise "MacRAR • Şuraya Çıkart…", "MacRAR • Test Et" ve Ayarlar'daki varsayılan biçimle soru sormadan arşiv oluşturan "MacRAR • Hızlı Sıkıştır" bulunur. Komutlar uygulama Uygulamalar klasöründen ilk açıldığında kendiliğinden kurulur; *MacRAR → Finder Hızlı Eylemlerini (Yeniden) Yükle* onarır.
 - **Dosya ilişkilendirme:** İlk açılışta hangi dosya türlerinin MacRAR ile açılacağını soran bir pencere gelir; sonradan *MacRAR → Dosya İlişkilendirmeleri…* ile değiştirilir.
-- **Uygulamalar klasörüne taşıma:** DMG'den, İndirilenler'den ya da Masaüstü'nden çalıştırılınca uygulama kendini Uygulamalar klasörüne taşımayı önerir (sağ tık menüsü ve ilişkilendirmeler yalnızca oradan çalışır). Uygulamalar klasöründeki eski MacRAR yerine geçer; aynı adlı başka bir uygulamanın üzerine yazılmaz.
-
-[Gizlilik politikası](PRIVACY.md) · [Destek](SUPPORT.md)
+- **Uygulamalar klasörüne taşıma:** DMG'den ya da İndirilenler'den çalıştırılınca uygulama kendini Uygulamalar klasörüne taşımayı önerir (sağ tık menüsü ve ilişkilendirmeler yalnızca oradan çalışır).
 
 ## İndirme
 
@@ -83,11 +81,11 @@ Güncellemek için `brew upgrade --cask macrar`. Cask [mstcvk/homebrew-tap](http
 ```bash
 git clone https://github.com/mstcvk/MacRAR.git
 cd MacRAR
-./fetch-tools.sh      # 7zz'yi (7-Zip 26.04) resmi 7-Zip GitHub sürümlerinden tools/ klasörüne indirir
+./fetch-tools.sh      # 7zz'yi 7-zip.org'dan tools/ klasörüne indirir
 ./build.sh install    # derler, /Applications/MacRAR.app olarak kurar, Finder hızlı eylemlerini yükler
 ```
 
-Yalnızca derlemek için `./build.sh` (çıktı: `build/MacRAR.app`). Kurulum adımı MacRAR'ı kendisi kapatmaz; MacRAR çalışıyorsa `./build.sh install` siz kapatana kadar bekler. `./build.sh` ayrıca birim testlerini (`sh tests/run.sh`) çalıştırır; testler başarısız olursa derleme durur.
+Yalnızca derlemek için `./build.sh` (çıktı: `build/MacRAR.app`). Kurulum adımı çalışan bir MacRAR'ı asla kapatmaz; devam eden bir çıkartma varsa uygulamanın kapanmasını bekler.
 
 `7zz` ikilisi bu depoda **bulunmaz**; `fetch-tools.sh` onu resmi kaynağından indirir, böylece lisansı sahibinde kalır. RARLAB'ın `rar` aracı hiçbir zaman paketlenmez; kullanıcının indirdiği kopya `~/Library/Application Support/MacRAR/rar` altına kurulur.
 
@@ -97,7 +95,7 @@ Hızlı eylemler Finder menüsünde görünmezse: Sistem Ayarları → Genel →
 
 ## İmzalı dağıtım (release.sh)
 
-`build.sh`, Developer ID sertifikası kuruluysa onunla, yoksa ad-hoc imzalar; ad-hoc imzalı uygulama yalnızca derlendiği Mac'te sorunsuz çalışır. Başka Mac'lerde Gatekeeper uyarısı çıkmaması için `release.sh` uygulamayı Developer ID sertifikasıyla imzalar, Apple notarize servisine gönderir, onay damgasını ekler ve `dist/MacRAR-<sürüm>.zip` üretir. Gerekenler: Apple Developer Program üyeliği, "Developer ID Application" sertifikası (Xcode → Settings → Accounts → Manage Certificates…) ve bir `notarytool` anahtar zinciri profili:
+`build.sh` yalnızca bu Mac'te çalışan ad-hoc imzalı bir uygulama üretir. Başka Mac'lerde Gatekeeper uyarısı çıkmaması için `release.sh` uygulamayı Developer ID sertifikasıyla imzalar, Apple notarize servisine gönderir, onay damgasını ekler ve `dist/MacRAR-<sürüm>.zip` üretir. Gerekenler: Apple Developer Program üyeliği, "Developer ID Application" sertifikası (Xcode → Settings → Accounts → Manage Certificates…) ve bir `notarytool` anahtar zinciri profili:
 
 ```bash
 xcrun notarytool store-credentials MacRAR --apple-id siz@ornek.com --team-id EKIPKIMLIGI
@@ -112,7 +110,7 @@ Hızlı eylemler uygulamayı şu şekilde çağırır:
 open -n -a /Applications/MacRAR.app --args --extract-here /yol/arsiv.rar
 ```
 
-Desteklenen bayraklar: `--extract-here`, `--extract-folder`, `--extract-to`, `--test`, `--compress` (Ayarlar'daki varsayılan biçimle, seçenek penceresi açmadan), `--compress-dialog`, `--set-default`, `--install-quick-actions`.
+Desteklenen bayraklar: `--extract-here`, `--extract-folder`, `--extract-to`, `--test`, `--compress` (Ayarlar'daki varsayılan biçimle, soru sormadan), `--compress-dialog`, `--set-default`, `--install-quick-actions`.
 
 ## Dosya yapısı
 
@@ -122,8 +120,7 @@ Desteklenen bayraklar: `--extract-here`, `--extract-folder`, `--extract-to`, `--
 - `Sources/Dialogs.swift` – şifre, ilerleme ve sıkıştırma seçenekleri pencereleri
 - `Sources/QuickActions.swift` – Finder sağ tık menüsü (.workflow) üretimi
 - `Sources/Associations.swift` – “Hangi dosyalar MacRAR ile açılsın?” penceresi
-- `Sources/ArchivePath.swift` – arşiv adı normalizasyonu ve güvenli yol denetimi (saf Swift, birim testli)
-- `Sources/Installer.swift` – DMG/İndirilenler/Masaüstü'nden açılınca Uygulamalar klasörüne taşıma önerisi
+- `Sources/Installer.swift` – DMG/İndirilenler'den açılınca Uygulamalar klasörüne taşıma önerisi
 - `Sources/UpdateChecker.swift` – günlük GitHub Releases denetimi
 - `Sources/RarTools.swift` – kullanıcının RARLAB `rar` aracını bulma / kurma
 - `Sources/Quarantine.swift` – arşivin karantina bayrağını çıkartılan dosyalara aktarma
@@ -134,7 +131,7 @@ Desteklenen bayraklar: `--extract-here`, `--extract-folder`, `--extract-to`, `--
 
 ## Geliştirici notları
 
-Otomatik test için ortam değişkenleri (ekran kaydı izni gerektirmez). `MACRAR_DEBUG_*` olanlar yalnızca `MACRAR_DEBUG_BUILD=1 ./build.sh` ile derlenir; sürüm derlemeleri bunları yok sayar:
+Otomatik test için ortam değişkenleri (ekran kaydı izni gerektirmez):
 
 | Değişken | Etkisi |
 |---|---|

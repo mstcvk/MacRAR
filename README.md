@@ -39,7 +39,7 @@ The whole app is a few thousand lines of Swift, needs no Xcode project (Command 
 ## Features
 
 **Browsing**
-- Opens an archive as a folder tree: name, lock indicator, size, packed size, ratio, modification date, CRC. Click a header to sort; column widths and order are remembered.
+- Opens an archive as a folder tree: name, lock indicator, size, packed size, ratio, modification date, CRC. Click a header to sort; widths and sort order are remembered.
 - Search field filters the whole archive by path.
 - Double-click or press Return to open a file with its default app; press Space for a Quick Look preview.
 - File → Open Recent, View → Expand All / Collapse All / Refresh / Show Archive in Finder.
@@ -51,14 +51,13 @@ The whole app is a few thousand lines of Swift, needs no Xcode project (Command 
 - If the destination already contains items with the same names you are asked whether to overwrite, auto-rename, or cancel.
 - Drag items from the archive window onto a Finder folder or the Desktop: MacRAR asks once, then extracts the dragged items there with a progress window.
 - Progress window with overall percentage, estimated remaining time, elapsed time, the current file, and a collapsible log of processed files.
-- Archives that contain `../` or absolute paths are refused instead of extracted.
 
 **Encrypted archives**
 - RAR archives with encrypted file data or encrypted headers (`-hp`), 7z with encrypted headers (`-mhe`), ZIP with ZipCrypto or AES.
-- The password is requested only when it is actually required, re-requested if wrong, and kept only while that archive's window stays open.
+- The password is requested only when it is actually required, re-requested if wrong, and remembered for the rest of the session with that archive.
 
 **Multi-volume archives**
-- RAR `.part01.rar … .partNN.rar`, 7z and ZIP `.001 … .NNN` sets are recognised. Selecting all parts in Finder and running *Extract*, *Extract To…* or *Test* processes the set once, starting from the first volume.
+- RAR `.part01.rar … .partNN.rar`, 7z and ZIP `.001 … .NNN` sets are recognised. Selecting all parts in Finder and running a Quick Action processes the set once, starting from the first volume.
 
 **Creating archives**
 - Formats: 7z, ZIP, TAR, TAR.GZ, TAR.XZ, TAR.BZ2 out of the box; RAR 5 once you point the app at your own copy of RARLAB's "RAR for macOS" (Settings → *Install RAR Tool…*, or just pick RAR when creating an archive and follow the steps).
@@ -73,9 +72,9 @@ The whole app is a few thousand lines of Swift, needs no Xcode project (Command 
 - Once a day MacRAR checks GitHub Releases for a newer version and offers to download it; *MacRAR → Check for Updates…* runs the check on demand. Set `MACRAR_NO_UPDATE_CHECK=1` to disable it.
 
 **Finder integration**
-- Right-click menu in Finder: *Open with MacRAR*, *MacRAR: Extract Here*, *MacRAR: Extract to Folder* (shown for archives) and *Compress with MacRAR…* (shown for any selection) appear directly in the context menu; *Extract To…*, *Test* and *Quick Compress* (default format from Settings; no options dialog, it asks only if an archive with that name exists) live in the *Quick Actions* submenu. They are installed automatically the first time the app runs from Applications; *MacRAR → (Re)install Finder Quick Actions* repairs them.
+- Right-click menu in Finder: *Open with MacRAR*, *MacRAR: Extract Here*, *MacRAR: Extract to Folder* (shown for archives) and *Compress with MacRAR…* (shown for any selection) appear directly in the context menu; *Extract To…*, *Test* and *Quick Compress* (default format from Settings, no dialog) live in the *Quick Actions* submenu. They are installed automatically the first time the app runs from Applications; *MacRAR → (Re)install Finder Quick Actions* repairs them.
 - Registers as the owner of `.rar` and as an alternate handler for ZIP, 7z, TAR, GZ, BZ2, XZ, ZST, CAB, ISO and more, so they appear in *Open With*. On first launch a *File Associations* dialog lets you pick which types should open with MacRAR; it is always available from the app menu.
-- If you launch MacRAR from the DMG, Downloads or the Desktop it offers to move itself to Applications, because the Finder menu and the associations only work from there. An existing MacRAR in Applications is replaced; another app with the same name is never overwritten.
+- If you launch MacRAR from the DMG or from Downloads it offers to move itself to Applications, because the Finder menu and the associations only work from there.
 
 ## Supported formats
 
@@ -127,11 +126,11 @@ Since 1.4 the app bundles only the 7-Zip engine (universal: Apple Silicon and In
 ```bash
 git clone https://github.com/mstcvk/MacRAR.git
 cd MacRAR
-./fetch-tools.sh      # downloads 7zz (7-Zip 26.04) from the official 7-Zip GitHub releases into tools/
+./fetch-tools.sh      # downloads 7zz from 7-zip.org into tools/
 ./build.sh install    # compiles, installs /Applications/MacRAR.app, registers Finder Quick Actions
 ```
 
-`./build.sh` alone only builds `build/MacRAR.app`. The install step never kills a running MacRAR: if MacRAR is running, `./build.sh install` waits until you quit it. `./build.sh` also runs the unit tests (`sh tests/run.sh`) and stops if they fail.
+`./build.sh` alone only builds `build/MacRAR.app`. The install step never kills a running MacRAR; if an extraction is in progress it waits for the app to quit.
 
 The `7zz` binary is **not** part of this repository. `fetch-tools.sh` downloads it from its official source so that its licence stays with its author. RARLAB's `rar` is never bundled; the app installs a copy the user downloads into `~/Library/Application Support/MacRAR/rar`.
 
@@ -141,7 +140,7 @@ After installing:
 
 ### Code signing
 
-`build.sh` signs with your Developer ID certificate if one is installed, otherwise ad-hoc; an ad-hoc app runs on the Mac it was built on. If you pass that `.app` to someone else, Gatekeeper will complain; they can right-click → Open once, or run `xattr -cr /Applications/MacRAR.app`.
+`build.sh` produces an ad-hoc signed app that runs on the Mac it was built on. If you pass that `.app` to someone else, Gatekeeper will complain; they can right-click → Open once, or run `xattr -cr /Applications/MacRAR.app`.
 
 For a build that opens anywhere without warnings, `release.sh` signs with a Developer ID certificate, submits the app to Apple's notary service, staples the ticket and writes `dist/MacRAR-<version>.zip`. It needs an Apple Developer Program membership, a "Developer ID Application" certificate (Xcode → Settings → Accounts → Manage Certificates…) and a `notarytool` keychain profile:
 
@@ -164,7 +163,7 @@ open -n -a /Applications/MacRAR.app --args --extract-here /path/archive.rar
 | `--extract-folder` | extract into a folder named after the archive |
 | `--extract-to` | ask for a destination folder once, then extract |
 | `--test` | test the archive and report |
-| `--compress` | create an archive with the default format and level from Settings; no options dialog |
+| `--compress` | create an archive with the default format and level from Settings, no dialog |
 | `--compress-dialog` | open the Create Archive dialog |
 | `--set-default` | make MacRAR the default app for `.rar` |
 | `--install-quick-actions` | (re)install the Finder Quick Actions |
@@ -179,12 +178,9 @@ Sources/Dialogs.swift        password / overwrite prompts, progress window, Crea
 Sources/Prefs.swift          user defaults and the Settings window
 Sources/QuickActions.swift   generates the .workflow bundles for the Finder right-click menu
 Sources/Associations.swift   "which files open with MacRAR" dialog (first launch + app menu)
-Sources/FolderAccess.swift  App Store folder access (security-scoped bookmarks)
-Sources/ServiceProvider.swift  Finder services (App Store edition)
 Sources/Installer.swift      offers to move the app to Applications when run from a DMG or Downloads
 Sources/UpdateChecker.swift  daily GitHub Releases check
 Sources/RarTools.swift       locating / installing the user's RARLAB rar
-Sources/ArchivePath.swift   archive name normalisation and the unsafe-path check (pure Swift, unit tested)
 Sources/Quarantine.swift     propagates the archive's quarantine flag to extracted files
 Sources/Localization.swift   English string table (Turkish strings are the keys)
 Sources/AppDelegate.swift    menus, document handling, command-line modes
@@ -192,13 +188,12 @@ Sources/main.swift           entry point
 Info.plist                   bundle, document type and UTI registration
 build.sh / fetch-tools.sh    build, install and tool download scripts
 release.sh                   Developer ID signing, notarization, DMG, GitHub release
-tests/                      unit tests for the pure logic (sh tests/run.sh, run by build.sh)
 makeicon.swift               draws the app icon
 ```
 
 ### Debug hooks
 
-Environment variables used for automated testing (no screen recording permission is needed). The `MACRAR_DEBUG_*` ones are compiled in only by `MACRAR_DEBUG_BUILD=1 ./build.sh`; release builds ignore them:
+Environment variables used for automated testing (no screen recording permission is needed):
 
 | Variable | Effect |
 |---|---|
