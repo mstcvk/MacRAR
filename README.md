@@ -75,7 +75,7 @@ The whole app is a few thousand lines of Swift, needs no Xcode project (Command 
 **Finder integration**
 - Right-click menu in Finder: *Open with MacRAR*, *MacRAR: Extract Here*, *MacRAR: Extract to Folder* (shown for archives) and *Compress with MacRAR…* (shown for any selection) appear directly in the context menu; *Extract To…*, *Test* and *Quick Compress* (default format from Settings; no options dialog, it asks only if an archive with that name exists) live in the *Quick Actions* submenu. They are installed automatically the first time the app runs from Applications; *MacRAR → (Re)install Finder Quick Actions* repairs them.
 - Registers as the owner of `.rar` and as an alternate handler for ZIP, 7z, TAR, GZ, BZ2, XZ, ZST, CAB, ISO and more, so they appear in *Open With*. On first launch a *File Associations* dialog lets you pick which types should open with MacRAR; it is always available from the app menu.
-- If you launch MacRAR from the DMG, Downloads or the Desktop it offers to move itself to Applications, because the Finder menu and the associations only work from there.
+- If you launch MacRAR from the DMG, Downloads or the Desktop it offers to move itself to Applications, because the Finder menu and the associations only work from there. An existing MacRAR in Applications is replaced; another app with the same name is never overwritten.
 
 ## Supported formats
 

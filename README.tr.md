@@ -56,7 +56,7 @@ Okuma, çıkartma ve test (RAR dahil, 7-Zip'in unRAR kodu ile) paketlenmiş `7zz
 - **Dil:** Arayüz sistem diline göre Türkçe veya İngilizce açılır (Sistem Ayarları → Genel → Dil ve Bölge'deki uygulamaya özel dil seçimi de dikkate alınır). `MACRAR_LANG=tr|en` ile zorlanabilir.
 - **Finder sağ tık menüsü:** Arşiv seçiliyken doğrudan menüde "MacRAR ile Aç", "MacRAR: Buraya Çıkart", "MacRAR: Klasöre Çıkart"; her türlü seçimde "MacRAR ile Sıkıştır…" görünür. "Hızlı Eylemler" alt menüsünde ise "MacRAR • Şuraya Çıkart…", "MacRAR • Test Et" ve Ayarlar'daki varsayılan biçimle seçenek penceresi açmadan arşiv oluşturan "MacRAR • Hızlı Sıkıştır" bulunur. Komutlar uygulama Uygulamalar klasöründen ilk açıldığında kendiliğinden kurulur; *MacRAR → Finder Hızlı Eylemlerini (Yeniden) Yükle* onarır.
 - **Dosya ilişkilendirme:** İlk açılışta hangi dosya türlerinin MacRAR ile açılacağını soran bir pencere gelir; sonradan *MacRAR → Dosya İlişkilendirmeleri…* ile değiştirilir.
-- **Uygulamalar klasörüne taşıma:** DMG'den, İndirilenler'den ya da Masaüstü'nden çalıştırılınca uygulama kendini Uygulamalar klasörüne taşımayı önerir (sağ tık menüsü ve ilişkilendirmeler yalnızca oradan çalışır).
+- **Uygulamalar klasörüne taşıma:** DMG'den, İndirilenler'den ya da Masaüstü'nden çalıştırılınca uygulama kendini Uygulamalar klasörüne taşımayı önerir (sağ tık menüsü ve ilişkilendirmeler yalnızca oradan çalışır). Uygulamalar klasöründeki eski MacRAR yerine geçer; aynı adlı başka bir uygulamanın üzerine yazılmaz.
 
 [Gizlilik politikası](PRIVACY.md) · [Destek](SUPPORT.md)
 
