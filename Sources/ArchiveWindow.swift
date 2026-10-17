@@ -45,6 +45,11 @@ final class Node: NSObject {
         self.name = name; self.path = path; self.isDir = isDir
     }
 
+    /// .app gibi paket klasörü: Finder'daki gibi tek öğe olarak gösterilir, içi açılmaz (çıkartma/silme yine tüm paketi kapsar)
+    var isBundle: Bool { isDir && ArchivePath.isBundleName(name) }
+    /// Ağaçta genişletilebilir mi?
+    var isExpandable: Bool { isDir && !isBundle }
+
     var totalSize: Int64 {
         if !isDir { return entry?.size ?? 0 }
         return children.reduce(0) { $0 + $1.totalSize }
@@ -65,7 +70,7 @@ final class Node: NSObject {
 
     /// Klasörler her zaman önce; sonra seçilen sütuna göre
     static func compare(_ a: Node, _ b: Node, key: String, ascending: Bool) -> Bool {
-        if a.isDir != b.isDir { return a.isDir }
+        if a.isExpandable != b.isExpandable { return a.isExpandable }   // klasörler önce; paketler dosyalar gibi sıralanır
         var r: ComparisonResult
         func cmp<T: Comparable>(_ x: T, _ y: T) -> ComparisonResult { x < y ? .orderedAscending : (x == y ? .orderedSame : .orderedDescending) }
         switch key {
@@ -86,6 +91,8 @@ final class Node: NSObject {
         let root = Node(name: "", path: "", isDir: true)
         var map: [String: Node] = [:]
         for e in entries {
+            // macOS üstverisi (._ad, __MACOSX) Finder'daki gibi gösterilmez
+            if ArchivePath.isAppleMetadata(e.name) { continue }
             // ".." ve mutlak yollu girdiler ağaca alınmaz; bunları içeren arşiv zaten çıkartılmaz
             guard let levels = ArchivePath.levels(e.name), !levels.isEmpty else { continue }
             var parent = root
@@ -112,7 +119,7 @@ final class Node: NSObject {
     func flatten(into out: inout [Node]) {
         for c in children {
             out.append(c)
-            c.flatten(into: &out)
+            if !c.isBundle { c.flatten(into: &out) }
         }
     }
 }
@@ -537,7 +544,7 @@ final class ArchiveWindowController: NSWindowController, NSWindowDelegate, NSMen
     @objc private func doubleClicked() {
         let row = outline.clickedRow
         guard row >= 0, let n = outline.item(atRow: row) as? Node else { return }
-        if n.isDir {
+        if n.isExpandable {
             if outline.isItemExpanded(n) { outline.collapseItem(n) } else { outline.expandItem(n) }
         } else {
             openNode(n)
@@ -681,7 +688,8 @@ extension ArchiveWindowController: NSToolbarDelegate, NSToolbarItemValidation {
 extension ArchiveWindowController: NSOutlineViewDataSource, NSOutlineViewDelegate {
     func outlineView(_ outlineView: NSOutlineView, numberOfChildrenOfItem item: Any?) -> Int {
         if let f = filtered { return item == nil ? f.count : 0 }
-        return ((item as? Node) ?? root).children.count
+        let n = (item as? Node) ?? root
+        return n.isBundle ? 0 : n.children.count
     }
     func outlineView(_ outlineView: NSOutlineView, child index: Int, ofItem item: Any?) -> Any {
         if let f = filtered { return f[index] }
@@ -689,7 +697,7 @@ extension ArchiveWindowController: NSOutlineViewDataSource, NSOutlineViewDelegat
     }
     func outlineView(_ outlineView: NSOutlineView, isItemExpandable item: Any) -> Bool {
         if filtered != nil { return false }
-        return (item as? Node)?.isDir ?? false
+        return (item as? Node)?.isExpandable ?? false
     }
 
     func outlineView(_ outlineView: NSOutlineView, viewFor tableColumn: NSTableColumn?, item: Any) -> NSView? {
@@ -753,7 +761,7 @@ extension ArchiveWindowController: NSOutlineViewDataSource, NSOutlineViewDelegat
 
     private static var iconCache: [String: NSImage] = [:]
     private func icon(for node: Node) -> NSImage {
-        if node.isDir { return NSWorkspace.shared.icon(for: .folder) }
+        if node.isExpandable { return NSWorkspace.shared.icon(for: .folder) }   // paketler uzantılarının simgesiyle (.app → uygulama)
         let ext = (node.name as NSString).pathExtension.lowercased()
         if let c = Self.iconCache[ext] { return c }
         let img: NSImage

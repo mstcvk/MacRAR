@@ -45,6 +45,16 @@ expect(flat(ArchivePath.levels("./")), [], "levels: archive root gives none")
 expect(flat(ArchivePath.levels("../x")), nil, "levels: unsafe gives nil")
 
 // Ağaç: gerçek Node.buildTree (ArchiveWindow.swift) ve ArchiveEntry (RarEngine.swift)
+// macOS üstverisi ve paketler
+expect(ArchivePath.isAppleMetadata("__MACOSX/._a.txt"), true, "meta: __MACOSX")
+expect(ArchivePath.isAppleMetadata("dir/._a.txt"), true, "meta: AppleDouble in subdir")
+expect(ArchivePath.isAppleMetadata("./._Opera Installer.app"), true, "meta: AppleDouble after ./")
+expect(ArchivePath.isAppleMetadata("dir/a._b.txt"), false, "meta: ._ inside a name is not metadata")
+expect(ArchivePath.isBundleName("Opera Installer.app"), true, "bundle: .app")
+expect(ArchivePath.isBundleName("Notes.APP"), true, "bundle: case-insensitive")
+expect(ArchivePath.isBundleName("app"), false, "bundle: no extension")
+expect(ArchivePath.isBundleName("readme.txt"), false, "bundle: plain file")
+
 let entries = [
     ArchiveEntry(name: "./", isDirectory: true),
     ArchiveEntry(name: "./dir", isDirectory: true),
@@ -54,12 +64,21 @@ let entries = [
     ArchiveEntry(name: "../evil.sh", isDirectory: false),
     ArchiveEntry(name: "/abs.txt", isDirectory: false),
     ArchiveEntry(name: "top.txt", isDirectory: false),
+    ArchiveEntry(name: "__MACOSX/._top.txt", isDirectory: false),
+    ArchiveEntry(name: "._top.txt", isDirectory: false),
+    ArchiveEntry(name: "Opera Installer.app/Contents/MacOS/Opera", isDirectory: false, size: 7),
 ]
 let root = Node.buildTree(entries)
 var all: [Node] = []
 root.flatten(into: &all)
 
-expect(root.children.map { $0.name }, ["dir", "top.txt"], "tree: root children, dirs first")
+expect(root.children.map { $0.name }, ["dir", "Opera Installer.app", "top.txt"], "tree: root children, dirs first, bundle sorted like a file")
+expect(all.contains { $0.name == "__MACOSX" || $0.name.hasPrefix("._") }, false, "tree: macOS metadata hidden")
+let app = root.children.first { $0.name == "Opera Installer.app" }
+expect(app?.isBundle, true, "tree: .app is a bundle")
+expect(app?.isExpandable, false, "tree: bundle is not expandable")
+expect(app?.totalSize, 7, "tree: bundle size aggregates its contents")
+expect(all.contains { $0.name == "Opera" }, false, "tree: flatten does not descend into bundles")
 expect(all.contains { $0.name == "." || $0.name == ".." }, false, "tree: no . or .. node")
 expect(all.contains { $0.path.contains("evil") || $0.path.contains("abs") }, false, "tree: unsafe entries excluded")
 

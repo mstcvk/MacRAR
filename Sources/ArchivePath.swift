@@ -37,6 +37,25 @@ enum ArchivePath {
         return out
     }
 
+    /// macOS'un arşive kattığı üstveri: AppleDouble dosyaları ("._ad") ve __MACOSX klasörü. Finder bunları göstermez;
+    /// pencerede gizlenir, çıkartmada atlanır (Arşiv İzlencesi de kullanıcıya göstermez).
+    static func isAppleMetadata(_ raw: String) -> Bool {
+        for part in raw.split(separator: "/") where part != "." {
+            if part == "__MACOSX" || part.hasPrefix("._") { return true }
+        }
+        return false
+    }
+
+    /// Finder'da tek bir öğe gibi görünen paket klasörleri (.app, .framework, .bundle…): pencerede içi açılmaz
+    static let bundleExtensions: Set<String> = [
+        "app", "bundle", "framework", "kext", "plugin", "appex", "xpc", "prefpane", "qlgenerator", "mdimporter", "saver",
+        "pkg", "mpkg", "photoslibrary", "xcodeproj", "xcworkspace", "playground", "docset", "scptd", "workflow",
+    ]
+    static func isBundleName(_ name: String) -> Bool {
+        guard let dot = name.lastIndex(of: "."), dot != name.startIndex else { return false }
+        return bundleExtensions.contains(name[name.index(after: dot)...].lowercased())
+    }
+
     /// Ham addaki ilk `depth` anlamlı bileşenin ham önekini verir ("./dir/a.txt", 1 → "./dir").
     /// Ara klasörler arşivde ayrı bir girdi olmayabilir; 7zz'nin eşleştireceği ad bu önektir.
     static func rawPrefix(_ raw: String, depth: Int) -> String {

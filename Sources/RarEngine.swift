@@ -39,7 +39,7 @@ struct ArchiveInfo {
     var totalPacked: Int64 { entries.reduce(0) { $0 + $1.packedSize } }
     var topLevelNames: [String] {
         var seen = Set<String>(); var out: [String] = []
-        for e in entries {
+        for e in entries where !ArchivePath.isAppleMetadata(e.name) {   // __MACOSX / ._ad çıkartılmaz, çakışma sayılmaz
             guard let top = ArchivePath.topLevel(e.name), seen.insert(top).inserted else { continue }
             out.append(top)
         }
@@ -269,6 +269,8 @@ enum RarRunner {
         func flush() {
             defer { block = [:] }
             guard let name = block["Path"], !name.isEmpty else { return }
+            // macOS üstverisi (__MACOSX, ._ad): Finder gibi gösterilmez, sayılmaz, çıkartılmaz
+            if ArchivePath.isAppleMetadata(name) { return }
             let attrs = block["Attributes"] ?? ""
             let isDir = block["Folder"] == "+" || attrs.hasPrefix("D")
             var e = ArchiveEntry(name: name.hasSuffix("/") ? String(name.dropLast()) : name, isDirectory: isDir)

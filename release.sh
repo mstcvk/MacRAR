@@ -60,7 +60,12 @@ if [[ "$1" == "publish" ]]; then
   if gh release view "v$VERSION" >/dev/null 2>&1; then
     gh release upload "v$VERSION" "$DMG" "$ZIP" --clobber
   else
-    gh release create "v$VERSION" "$DMG" "$ZIP" --title "MacRAR $VERSION" --notes-file RELEASE_NOTES.md
+    # Yalnızca bu sürümün bölümü ("## MacRAR <sürüm>" başlığından bir sonraki "## " başlığına kadar) sürüm notu olur (#7)
+    NOTES=$(mktemp)
+    awk -v v="$VERSION" '/^## /{p = ($0 ~ ("^## MacRAR " v "([^0-9.]|$)"))} p' RELEASE_NOTES.md > "$NOTES"
+    [[ -s "$NOTES" ]] || { echo "RELEASE_NOTES.md içinde '## MacRAR $VERSION' bölümü yok"; rm -f "$NOTES"; exit 1; }
+    gh release create "v$VERSION" "$DMG" "$ZIP" --title "MacRAR $VERSION" --notes-file "$NOTES"
+    rm -f "$NOTES"
   fi
   echo "✔ Yayınlandı: $(gh release view "v$VERSION" --json url -q .url)"
   # Homebrew tap (github.com/mstcvk/homebrew-tap): cask sürümü ve DMG sağlaması güncellenir, push edilir

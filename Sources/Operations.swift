@@ -90,15 +90,18 @@ enum Ops {
 
     enum OverwriteArg { case overwrite, rename, skip }
 
+    /// macOS üstverisi (__MACOSX klasörü, ._ad AppleDouble dosyaları) çıkartılmaz; Arşiv İzlencesi de bunları ayrı dosya olarak bırakmaz
+    static let skipMetadataArgs = ["-xr!__MACOSX", "-xr!._*"]
+
     static func extractStages(info: ArchiveInfo, names: [String]?, dest: String, password: String?, mode: OverwriteArg) -> [Stage] {
         let ow = mode == .overwrite ? "-aoa" : (mode == .rename ? "-aou" : "-aos")
         if info.tarCompressed {
-            var inner = ["x", "-si", "-ttar", "-y", "-bb1", ow, "-o" + dest]
+            var inner = ["x", "-si", "-ttar", "-y", "-bb1", ow, "-o" + dest] + skipMetadataArgs
             if let names { inner += ["--"] + names }
             return [(.sevenZip, ["x", "-so", RarRunner.passwordArg7z(password), "--", info.path]),
                     (.sevenZip, inner)]
         }
-        var args = ["x", "-y", "-bsp1", "-bb1", ow, RarRunner.passwordArg7z(password), "-o" + dest, "--", info.path]
+        var args = ["x", "-y", "-bsp1", "-bb1", ow, RarRunner.passwordArg7z(password), "-o" + dest] + skipMetadataArgs + ["--", info.path]
         if let names { args += names }
         return [(.sevenZip, args)]
     }
@@ -298,7 +301,7 @@ enum Ops {
         let stages: [Stage]
         switch info.kind {
         case .rar:
-            stages = [(.rar, ["a", "-ep1", "-r", "-y"] + RarRunner.rarPasswordArgs(pw, encryptHeaders: info.headersEncrypted) + ["--", info.path] + items)]
+            stages = [(.rar, ["a", "-ep1", "-y"] + RarRunner.rarPasswordArgs(pw, encryptHeaders: info.headersEncrypted) + ["--", info.path] + items)]
         case .other:
             var args = ["a", "-y", "-bsp1", "-bb1", RarRunner.passwordArg7z(pw)]
             if info.headersEncrypted { args.append("-mhe=on") }

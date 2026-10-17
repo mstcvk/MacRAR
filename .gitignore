@@ -4,3 +4,4 @@ tools/
 *.xcuserstate
 dist/
 signing/
+._*

@@ -91,7 +91,7 @@ Yalnızca derlemek için `./build.sh` (çıktı: `build/MacRAR.app`). Kurulum ad
 
 Hangi dosya türlerinin MacRAR ile açılacağını seçmek: uygulama menüsünden **"Dosya İlişkilendirmeleri…"** (ilk açılışta bir kez kendiliğinden sorulur).
 
-Hızlı eylemler Finder menüsünde görünmezse: Sistem Ayarları → Genel → Oturum Açma Öğeleri ve Uzantılar → Finder (Hızlı Eylemler) altından etkinleştirin.
+Hızlı eylemler Finder menüsünde görünmezse: Sistem Ayarları → Genel → Oturum Açma Öğeleri ve Uzantılar → Uzantılar → Finder altından etkinleştirin (macOS 13–14: Gizlilik ve Güvenlik → Uzantılar → Finder). Mağaza sürümü hızlı eylem yerine uygulama hizmetleri kullanır; onlar Klavye → Klavye Kısayolları… → Hizmetler → Dosyalar ve Klasörler altında açılır.
 
 ## İmzalı dağıtım (release.sh)
 

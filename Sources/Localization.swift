@@ -129,7 +129,10 @@ enum L10n {
         "yok": "none", "Hangi dosyalar %@ ile açılsın?": "Which files should open with %@?",
         "Seçtiğiniz dosya türlerine çift tıklayınca bu uygulama açılır. Daha sonra menüden “Dosya İlişkilendirmeleri…” ile değiştirebilirsiniz.": "Double-clicking the selected file types will open them in this app. You can change this later from “File Associations…” in the app menu.",
         "Seçtiğiniz dosya türlerine çift tıklayınca bu uygulama açılır.": "Double-clicking the selected file types will open them in this app.",
-        "Şu an: %@": "Currently: %@", "Varsayılan Yap": "Make Default", "Şimdi Değil": "Not Now",
+        "Şu an: %@": "Currently: %@", "Varsayılan Yap": "Make Default", "Uygula": "Apply", "Şimdi Değil": "Not Now",
+        "Seçtiğiniz dosya türlerine çift tıklayınca bu uygulama açılır. İşareti kaldırdığınız türler önceki uygulamalarına geri verilir.":
+            "Double-clicking the selected file types opens this app. Types you untick are handed back to their previous app.",
+        "%d dosya türü önceki uygulamasına geri verildi.": "%d file types were handed back to their previous app.",
         "%@ artık %d dosya türü için varsayılan uygulama.": "%@ is now the default app for %d file types.", "Bazı türler ayarlanamadı": "Some types could not be set",
         "Dosya İlişkilendirmeleri…": "File Associations…", "macOS her dosya türü için ayrıca onay isteyecek.": "macOS will ask you to confirm each file type.",
         "Diğer arşivler: TAR, TGZ, BZ2, XZ, ZST, ZIPX, CAB, LZH, ARJ, CPIO…": "Other archives: TAR, TGZ, BZ2, XZ, ZST, ZIPX, CAB, LZH, ARJ, CPIO…", "Dosyalar:": "Files:",

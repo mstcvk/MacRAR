@@ -48,6 +48,7 @@ cp "$BUILD/AppIcon.icns" "$APP/Contents/Resources/AppIcon.icns"
 echo "▸ Çeviri tablosu denetleniyor"
 # Sözlükte yinelenen anahtar derlenir ama İngilizce sistemlerde açılışta çöker (1.3'teki hata)
 echo 'print(L10n.en.count)' > "$BUILD/obj/main.swift"
+touch -t 200001010000 "$BUILD/obj/main.swift"   # exFAT gibi kaba zaman damgalı disklerde swiftc yeni dosyayı "derleme sırasında değişti" sayar
 swiftc -swift-version 5 -module-name L10nCheck Sources/Localization.swift "$BUILD/obj/main.swift" -o "$BUILD/obj/l10n-check" 2>/dev/null
 "$BUILD/obj/l10n-check" >/dev/null 2>&1 || { echo "✘ Sources/Localization.swift: İngilizce tabloda yinelenen anahtar var"; exit 1; }
 
@@ -83,6 +84,8 @@ echo -n "APPL????" > "$APP/Contents/PkgInfo"
 cp "$SEVENZIP" "$APP/Contents/Resources/7zz"
 cp "$SEVENZIP_LICENSE" "$APP/Contents/Resources/7zip-license.txt" 2>/dev/null || true
 chmod +x "$APP/Contents/Resources/7zz"
+# exFAT/ağ disklerinde kopyalama AppleDouble (._ad) dosyaları bırakır; xattr ve codesign bunlara takılır
+find "$APP" -name '._*' -delete 2>/dev/null || true
 xattr -cr "$APP"
 
 if [[ $VARIANT == appstore ]]; then

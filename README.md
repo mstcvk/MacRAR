@@ -136,7 +136,7 @@ The `7zz` binary is **not** part of this repository. `fetch-tools.sh` downloads 
 
 After installing:
 - To choose which file types open with MacRAR: MacRAR menu → *File Associations…* (also shown once on first launch).
-- If the Quick Actions do not show up in Finder: System Settings → General → Login Items & Extensions → Finder (Quick Actions) and enable them.
+- If the Quick Actions do not show up in Finder: System Settings → General → Login Items & Extensions → Extensions → Finder and enable them (macOS 13–14: Privacy & Security → Extensions → Finder). The App Store edition uses app services instead; those are enabled under Keyboard → Keyboard Shortcuts… → Services → Files and Folders.
 
 ### Code signing
 

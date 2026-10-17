@@ -10,5 +10,7 @@ mkdir -p "$OUT"
   sed -n '/^struct ArchiveEntry {/,/^}/p' Sources/RarEngine.swift
   sed -n '/^final class Node: NSObject {/,/^}/p' Sources/ArchiveWindow.swift
 } > "$OUT/TreeSource.swift"
+# exFAT gibi kaba zaman damgalı disklerde swiftc yeni yazılan dosyayı "derleme sırasında değişti" sayar; eski bir damga ver
+touch -t 200001010000 "$OUT/TreeSource.swift"
 swiftc -swift-version 5 -module-name ArchivePathTests Sources/ArchivePath.swift "$OUT/TreeSource.swift" tests/main.swift -o "$OUT/run"
 "$OUT/run"

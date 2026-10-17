@@ -500,7 +500,7 @@ struct CompressOptions {
     func buildSteps(items: [String]) -> [Step] {
         switch format {
         case .rar5:
-            var a = ["a", "-ep1", "-r", "-y", "-m\(level)", "-ma5"]
+            var a = ["a", "-ep1", "-y", "-m\(level)", "-ma5"]
             if solid { a.append("-s") }
             if recoveryRecord { a.append("-rr3") }
             if let v = volumeSize, !v.isEmpty { a.append("-v\(v)") }
