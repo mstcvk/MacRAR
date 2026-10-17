@@ -3,19 +3,35 @@
 #
 # Ön koşullar (bir kez):
 #   1) Xcode → Settings → Accounts → hesabınız → Manage Certificates… → + → "Developer ID Application"
-#   2) App Store Connect'te uygulamaya özel parola oluşturup notarytool profiline kaydedin:
+#   2) Notarizasyon için ya signing/asc.json + ~/.appstoreconnect/private_keys/AuthKey_<ID>.p8 (App Store Connect API
+#      anahtarı, release-appstore.sh ile ortak) bulunsun ya da bir notarytool profili oluşturun:
 #        xcrun notarytool store-credentials MacRAR --apple-id APPLE_ID --team-id TEAMID
-#      (parolayı komut kendisi sorar; betiğe yazılmaz)
+#      (parolayı komut kendisi sorar; betiğe yazılmaz). NOTARY_USE_PROFILE=1 ile profil zorlanır;
+#      NOTARY_KEY_ID / NOTARY_KEY ile asc.json'dakinden farklı bir API anahtarı kullanılabilir.
 #
 # Kullanım:  ./release.sh                      → sertifikayı otomatik bulur, profil adı "MacRAR"
 #            ./release.sh publish              → ek olarak DMG ve ZIP'i GitHub Releases'a yükler (gh gerekir)
 #            IDENTITY="Developer ID Application: Ad (TEAMID)" PROFILE=MacRAR ./release.sh
 set -e
 cd "$(dirname "$0")"
-APP="build/MacRAR.app"
 # Her zaman yeniden derle: eski bir build/ kopyası Info.plist'teki sürümden geride kalabilir (1.4.3'te yaşandı)
 ./build.sh
+# exFAT/ağ disklerinde codesign "._" yan dosyaları bırakır; doğrulama ve notarizasyon bozulur. Paket APFS'teki geçici bir
+# klasöre alınır (ditto, xattr'ları yerel biçime taşır), imzalama ve paketleme oradan yapılır; çıktılar yine dist/ altına yazılır.
+WORK=$(mktemp -d)
+ditto "build/MacRAR.app" "$WORK/MacRAR.app"
+APP="$WORK/MacRAR.app"
 PROFILE="${PROFILE:-MacRAR}"
+# Notarizasyon kimliği: App Store Connect API anahtarı varsa o kullanılır (signing/asc.json'daki key_id/issuer +
+# ~/.appstoreconnect/private_keys/AuthKey_<ID>.p8, release-appstore.sh ile aynı); yoksa anahtar zincirindeki "$PROFILE" profili.
+NOTARY=(--keychain-profile "$PROFILE")
+if [[ -z "$NOTARY_USE_PROFILE" && -f signing/asc.json ]]; then
+  KEYID="${NOTARY_KEY_ID:-$(python3 -I -c 'import json;print(json.load(open("signing/asc.json"))["key_id"])')}"
+  ISSUER=$(python3 -I -c 'import json;print(json.load(open("signing/asc.json"))["issuer"])')
+  P8="${NOTARY_KEY:-$HOME/.appstoreconnect/private_keys/AuthKey_$KEYID.p8}"
+  if [[ -f "$P8" ]]; then NOTARY=(--key "$P8" --key-id "$KEYID" --issuer "$ISSUER"); NOTARY_DESC="API anahtarı $KEYID"; fi
+fi
+NOTARY_DESC="${NOTARY_DESC:-notarytool profili $PROFILE}"
 if [[ -z "$IDENTITY" ]]; then
   IDENTITY=$(security find-identity -v -p codesigning | grep -o '"Developer ID Application: [^"]*"' | head -1 | tr -d '"')
 fi
@@ -32,8 +48,8 @@ mkdir -p dist
 ZIP="dist/MacRAR-$VERSION.zip"
 rm -f "$ZIP"
 ditto -c -k --keepParent "$APP" "$ZIP"
-echo "▸ Apple'a gönderiliyor (notarytool profili: $PROFILE)"
-xcrun notarytool submit "$ZIP" --keychain-profile "$PROFILE" --wait
+echo "▸ Apple'a gönderiliyor ($NOTARY_DESC)"
+xcrun notarytool submit "$ZIP" "${NOTARY[@]}" --wait
 echo "▸ Onay damgası (staple) ekleniyor"
 xcrun stapler staple "$APP"
 rm -f "$ZIP"
@@ -50,9 +66,10 @@ hdiutil create -volname "MacRAR" -srcfolder "$STAGE" -ov -format UDZO -quiet "$D
 rm -rf "$STAGE"
 codesign --force --timestamp --sign "$IDENTITY" "$DMG"
 echo "▸ DMG notarize ediliyor"
-xcrun notarytool submit "$DMG" --keychain-profile "$PROFILE" --wait
+xcrun notarytool submit "$DMG" "${NOTARY[@]}" --wait
 xcrun stapler staple "$DMG"
 spctl --assess --type open --context context:primary-signature --verbose=2 "$DMG" && echo "✔ Gatekeeper onaylı: $DMG"
+rm -rf "$WORK"
 
 if [[ "$1" == "publish" ]]; then
   echo "▸ GitHub Releases'a yükleniyor (v$VERSION)"
