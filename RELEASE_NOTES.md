@@ -1,4 +1,4 @@
-## Unreleased
+## MacRAR 1.4.4
 
 **Fixes**
 - "Extract Here" on a tar.gz whose entries start with `./` no longer shows a false "already exists" warning; selecting items inside such archives extracts them (#3, reported by ahmetturk, fixed by IACBI).
