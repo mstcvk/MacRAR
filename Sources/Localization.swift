@@ -32,6 +32,8 @@ enum L10n {
         // İşlem sonuçları
         "Arşiv açılamadı": "Could not open archive", "\"%@\" desteklenen bir arşiv değil.": "\"%@\" is not a supported archive.",
         "Çıkartma başarısız": "Extraction failed", "Çıkartma uyarılarla tamamlandı": "Extraction finished with warnings",
+        "Çıkartma reddedildi": "Extraction refused",
+        "Arşivde güvenli olmayan yollar var (../ veya mutlak yol). Bu arşiv çıkartılmadı.": "The archive contains unsafe paths (../ or absolute paths). It was not extracted.",
         "Test başarılı": "Test passed", "\"%@\" arşivinde hata bulunmadı.": "No errors were found in \"%@\".", "Test başarısız": "Test failed",
         "\"%@\" zaten var": "\"%@\" already exists",
         "Aynı adlı mevcut arşiv şifreli. Yeni, şifresiz bir arşiv oluşturulsun mu, yoksa dosyalar şifreli arşive mi eklensin?":
