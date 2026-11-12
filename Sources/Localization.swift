@@ -13,6 +13,15 @@ enum L10n {
     }()
 
     static let en: [String: String] = [
+        // File export to other applications
+        "Dosyalar hazır. Kopyalamak için yeniden ⌘C tuşlarına basın.": "Files ready. Press ⌘C again to copy them.",
+        "%d öğe kopyalandı — Finder, Telegram veya başka bir uygulamaya yapıştırın.": "Copied %d item(s) — paste in Finder, Telegram or another app.",
+        "Dosya açılamadı": "Could not open file",
+        "Dosyalar hazırlanıyor…": "Preparing files…",
+        "Dosyalar hazırlanamadı": "Could not prepare files",
+        "Dosyalar hazır — yeniden sürükleyin veya ⌘C tuşlarına basın.": "Files ready — drag again or press ⌘C.",
+        "Arşiv güvenli olmayan veya boş bir dosya yolu içeriyor.": "The archive contains an unsafe or empty file path.",
+        "Arşivdeki bir bağlantı çıkartılan dosyaların dışına işaret ediyor.": "An archive link points outside the extracted files.",
         // Genel
         "Tamam": "OK", "İptal": "Cancel", "Çıkart": "Extract", "Aç": "Open", "Seç": "Choose", "Ekle": "Add", "Sil": "Delete",
         "Evet": "Yes", "Hayır": "No", "arşiv": "archive", "Bilinmeyen hata.": "Unknown error.",

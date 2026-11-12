@@ -381,7 +381,10 @@ final class RarJob {
                 self.flushPartial()
                 for p in self.processes where p !== proc && p.isRunning { p.terminate() }
                 let result = RarResult(code: proc.terminationStatus, output: self.output, cancelled: self.cancelled)
-                DispatchQueue.main.async { completion(result) }
+                DispatchQueue.main.async {
+                    self.processes.removeAll()
+                    completion(result)
+                }
             }
         }
         processes = procs

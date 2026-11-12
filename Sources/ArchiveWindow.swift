@@ -7,6 +7,13 @@ import UniformTypeIdentifiers
 final class ArchiveOutlineView: NSOutlineView {
     var onReturn: (() -> Void)?
     var onSpace: (() -> Void)?
+    var onCopy: (() -> Void)?
+    @objc func copy(_ sender: Any?) { onCopy?() }
+    override func menu(for event: NSEvent) -> NSMenu? {
+        let row = row(at: convert(event.locationInWindow, from: nil))
+        if row >= 0, !selectedRowIndexes.contains(row) { selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false) }
+        return super.menu(for: event)
+    }
     override func keyDown(with event: NSEvent) {
         let mods = event.modifierFlags.intersection(.deviceIndependentFlagsMask).subtracting(.numericPad)
         if mods.isEmpty, let ch = event.charactersIgnoringModifiers?.unicodeScalars.first {
@@ -142,16 +149,10 @@ final class ArchiveWindowController: NSWindowController, NSWindowDelegate, NSMen
     private var sortKey = "name"
     private var sortAscending = true
     private var previewURLs: [URL] = []
-    private let promiseQueue: OperationQueue = {
-        let q = OperationQueue(); q.maxConcurrentOperationCount = 1; return q
-    }()
-    // Finder'a sürükleme oturumu (soru bir kez sorulur, öğeler tek seferde çıkartılır)
-    private var dragNodes: [Node] = []
-    private var dragDecision: Bool? = nil
-    private var dragTempDir: String? = nil
-    private var dragExtracted = false
-    private var dragExtractOK = false
-    private var dragPending = 0
+    private var exporter: ArchiveFileExporter?
+    private var selectionWarmup: DispatchWorkItem?
+    private var preparingDrag = false
+    private let exportDragSource = ExportDragSource()
 
     static let nameCol = NSUserInterfaceItemIdentifier("name")
     static let sizeCol = NSUserInterfaceItemIdentifier("size")
@@ -205,6 +206,7 @@ final class ArchiveWindowController: NSWindowController, NSWindowDelegate, NSMen
         outline.autosaveTableColumns = true
         outline.onReturn = { [weak self] in self?.openSelected(nil) }
         outline.onSpace = { [weak self] in self?.quickLook(nil) }
+        outline.onCopy = { [weak self] in self?.copy(nil) }
         outline.outlineTableColumn = outline.tableColumns[0]
         outline.dataSource = self
         outline.delegate = self
@@ -282,6 +284,7 @@ final class ArchiveWindowController: NSWindowController, NSWindowDelegate, NSMen
         let m = NSMenu()
         m.addItem(withTitle: L("Aç"), action: #selector(openSelected), keyEquivalent: "")
         m.addItem(withTitle: L("Göz At"), action: #selector(quickLook(_:)), keyEquivalent: "")
+        m.addItem(withTitle: L("Kopyala"), action: #selector(copy(_:)), keyEquivalent: "c")
         m.addItem(.separator())
         m.addItem(withTitle: L("Seçilenleri Buraya Çıkart"), action: #selector(extractSelectedHere), keyEquivalent: "")
         m.addItem(withTitle: L("Seçilenleri Şuraya Çıkart…"), action: #selector(extractSelectedTo), keyEquivalent: "")
@@ -332,6 +335,7 @@ final class ArchiveWindowController: NSWindowController, NSWindowDelegate, NSMen
             return
         }
         self.info = info
+        exporter = ArchiveFileExporter(info: info)
         root = Node.buildTree(info.entries)
         root.sortRecursively(key: sortKey, ascending: sortAscending)
         applyFilter()
@@ -355,27 +359,7 @@ final class ArchiveWindowController: NSWindowController, NSWindowDelegate, NSMen
         }
         updateStatus()
         NSDocumentController.shared.noteNewRecentDocumentURL(URL(fileURLWithPath: path))
-        if let dest = ProcessInfo.processInfo.environment["MACRAR_DEBUG_DRAG"] { simulateDrag(to: dest) }
-    }
 
-    /// Hata ayıklama: ilk üst düzey öğeleri Finder'a sürüklenmiş gibi hedefe yazar
-    private func simulateDrag(to dest: String) {
-        let nodes = Array(root.children.prefix(2))
-        guard !nodes.isEmpty else { return }
-        outlineView(outline, draggingSession: NSDraggingSession(), willBeginAt: .zero, forItems: nodes)
-        for n in nodes {
-            let p = NSFilePromiseProvider(fileType: "public.data", delegate: self)
-            p.userInfo = n
-            let url = URL(fileURLWithPath: (dest as NSString).appendingPathComponent(n.name))
-            promiseQueue.addOperation { [self] in
-                let done = DispatchSemaphore(value: 0)
-                filePromiseProvider(p, writePromiseTo: url) { err in
-                    print("drag-sim:", n.name, err.map { "HATA \($0)" } ?? "OK")
-                    done.signal()
-                }
-                done.wait()
-            }
-        }
     }
 
     private func applyFilter() {
@@ -537,8 +521,30 @@ final class ArchiveWindowController: NSWindowController, NSWindowDelegate, NSMen
         Dialogs.info((info.path as NSString).lastPathComponent, text)
     }
 
+    @objc func copy(_ sender: Any?) {
+        let nodes = selectedNodes()
+        let changeCount = NSPasteboard.general.changeCount
+        prepareFiles(nodes) { [weak self] urls in
+            // A slow extraction must not overwrite something the user copied elsewhere.
+            guard NSPasteboard.general.changeCount == changeCount else {
+                self?.statusLabel.stringValue = L("Dosyalar hazır. Kopyalamak için yeniden ⌘C tuşlarına basın.")
+                return
+            }
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.writeObjects(urls as [NSURL])
+            self?.statusLabel.stringValue = LF("%d öğe kopyalandı — Finder, Telegram veya başka bir uygulamaya yapıştırın.", urls.count)
+        }
+    }
+
     @objc func openSelected(_ sender: Any?) {
-        for n in selectedNodes() { openNode(n) }
+        prepareFiles(selectedNodes()) { [weak self] urls in
+            for url in urls {
+                if !NSWorkspace.shared.open(url) {
+                    Dialogs.error(L("Dosya açılamadı"), url.lastPathComponent)
+                }
+            }
+            self?.updateStatus()
+        }
     }
 
     @objc private func doubleClicked() {
@@ -547,19 +553,70 @@ final class ArchiveWindowController: NSWindowController, NSWindowDelegate, NSMen
         if n.isExpandable {
             if outline.isItemExpanded(n) { outline.collapseItem(n) } else { outline.expandItem(n) }
         } else {
-            openNode(n)
+            prepareFiles([n]) { urls in
+                for url in urls where !NSWorkspace.shared.open(url) {
+                    Dialogs.error(L("Dosya açılamadı"), url.lastPathComponent)
+                }
+            }
         }
     }
 
-    private func openNode(_ n: Node) {
-        guard let info else { return }
-        let tmp = TempDirs.make("open")
-        Ops.extract(info: info, names: [n.path], dest: tmp, password: password, host: window, quiet: true) { [weak self] ok, pw in
-            self?.password = pw ?? self?.password
-            guard ok else { return }
-            let target = (tmp as NSString).appendingPathComponent(n.path)
-            NSWorkspace.shared.open(URL(fileURLWithPath: target))
+    private func prepareFiles(_ nodes: [Node], finished: @escaping () -> Void = {}, completion: @escaping ([URL]) -> Void) {
+        guard !nodes.isEmpty, let exporter else { finished(); return }
+        let paths = Self.paths(for: nodes)
+        if let urls = exporter.cachedURLs(for: paths) { finished(); completion(urls); return }
+        let info = exporter.info
+        if Ops.needsPassword(info: info, names: paths), password == nil {
+            guard let pw = Dialogs.askPassword(archiveName: (info.path as NSString).lastPathComponent) else { finished(); return }
+            password = pw
         }
+        let panel = ProgressPanel(title: L("Dosyalar hazırlanıyor…"))
+        let show = DispatchWorkItem { [weak self] in
+            if let self, self.window?.isVisible == true { panel.show(on: self.window) }
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4, execute: show)
+        let task = exporter.prepare(paths: paths, password: password, onEvent: { event in
+            switch event {
+            case .file(let name): panel.setFile(name)
+            case .progress(let percent): panel.setFraction(Double(percent) / 100)
+            }
+        }) { [weak self] result in
+            show.cancel()
+            panel.dismiss()
+            finished()
+            guard let self else { return }
+            switch result {
+            case .success(let urls): completion(urls)
+            case .failure(.extraction(let result)):
+                if result.cancelled { return }
+                if result.wrongPassword {
+                    guard let pw = Dialogs.askPassword(archiveName: (info.path as NSString).lastPathComponent, wrong: true) else { return }
+                    self.password = pw
+                    self.prepareFiles(nodes, completion: completion)
+                } else { Dialogs.error(L("Çıkartma başarısız"), result.errorSummary, details: result.output) }
+            case .failure(.file(let error)): Dialogs.error(L("Dosyalar hazırlanamadı"), error.localizedDescription)
+            }
+        }
+        panel.onCancel = { task?.cancel() }
+    }
+
+    /// Small selections are ready by the time the pointer starts moving. Large or
+    /// encrypted selections wait for an explicit action, with progress and cancellation.
+    private func warmSelection() {
+        selectionWarmup?.cancel()
+        let nodes = selectedNodes()
+        guard let exporter, !nodes.isEmpty, !exporter.isPreparing,
+              nodes.reduce(Int64(0), { $0 + $1.totalSize }) <= 32 * 1024 * 1024,
+              !exporter.info.isSolid || exporter.info.totalSize <= 128 * 1024 * 1024 else { return }
+        let paths = Self.paths(for: nodes)
+        guard !Ops.needsPassword(info: exporter.info, names: paths) || password != nil else { return }
+        let password = self.password
+        let work = DispatchWorkItem { [weak self] in
+            guard self?.exporter === exporter else { return }
+            exporter.prepare(paths: paths, password: password) { _ in }
+        }
+        selectionWarmup = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15, execute: work)
     }
 
     // MARK: Görünüm eylemleri
@@ -577,15 +634,9 @@ final class ArchiveWindowController: NSWindowController, NSWindowDelegate, NSMen
     }
 
     private func prepareQuickLook(completion: @escaping () -> Void) {
-        guard let info else { return }
         let files = selectedNodes().filter { !$0.isDir }
-        guard !files.isEmpty else { return }
-        let tmp = TempDirs.make("ql")
-        Ops.extract(info: info, names: files.map { $0.path }, dest: tmp, password: password, host: window, quiet: true) { [weak self] ok, pw in
-            guard let self else { return }
-            self.password = pw ?? self.password
-            guard ok else { return }
-            self.previewURLs = files.map { URL(fileURLWithPath: (tmp as NSString).appendingPathComponent($0.path)) }
+        prepareFiles(files) { [weak self] urls in
+            self?.previewURLs = urls
             completion()
         }
     }
@@ -620,7 +671,7 @@ final class ArchiveWindowController: NSWindowController, NSWindowDelegate, NSMen
             return info == nil || info?.supportsModification == true
         case #selector(deleteSelected):
             return info?.supportsModification == true && !outline.selectedRowIndexes.isEmpty
-        case #selector(extractSelectedHere), #selector(extractSelectedTo), #selector(openSelected):
+        case #selector(extractSelectedHere), #selector(extractSelectedTo), #selector(openSelected), #selector(copy(_:)):
             return info != nil && !outline.selectedRowIndexes.isEmpty
         case #selector(quickLook(_:)):
             return info != nil && selectedNodes().contains { !$0.isDir }
@@ -772,6 +823,7 @@ extension ArchiveWindowController: NSOutlineViewDataSource, NSOutlineViewDelegat
 
     func outlineViewSelectionDidChange(_ notification: Notification) {
         updateStatus()
+        warmSelection()
         if let panel = QLPreviewPanel.shared(), panel.isVisible, panel.dataSource === self {
             prepareQuickLook { panel.reloadData() }
         }
@@ -816,87 +868,37 @@ extension ArchiveWindowController: NSOutlineViewDataSource, NSOutlineViewDelegat
         }
     }
 
-    // Arşivden Finder'a sürükleme (dosya vaadi)
-    func outlineView(_ outlineView: NSOutlineView, draggingSession session: NSDraggingSession, willBeginAt screenPoint: NSPoint, forItems draggedItems: [Any]) {
-        dragNodes = draggedItems.compactMap { $0 as? Node }
-        dragDecision = nil
-        dragTempDir = nil
-        dragExtracted = false
-        dragExtractOK = false
-        dragPending = dragNodes.count
-    }
-
+    // Publish actual file URLs. File promises alone are not accepted by apps such as Telegram.
     func outlineView(_ outlineView: NSOutlineView, pasteboardWriterForItem item: Any) -> NSPasteboardWriting? {
-        guard let node = item as? Node else { return nil }
-        let type: String
-        if node.isDir { type = UTType.folder.identifier }
-        else { type = UTType(filenameExtension: (node.name as NSString).pathExtension)?.identifier ?? UTType.data.identifier }
-        let p = NSFilePromiseProvider(fileType: type, delegate: self)
-        p.userInfo = node
-        return p
-    }
-}
-
-extension ArchiveWindowController: NSFilePromiseProviderDelegate {
-    func filePromiseProvider(_ p: NSFilePromiseProvider, fileNameForType fileType: String) -> String {
-        (p.userInfo as? Node)?.name ?? "dosya"
-    }
-    func operationQueue(for p: NSFilePromiseProvider) -> OperationQueue { promiseQueue }
-
-    func filePromiseProvider(_ p: NSFilePromiseProvider, writePromiseTo url: URL, completionHandler: @escaping (Error?) -> Void) {
-        guard let node = p.userInfo as? Node, let info else { completionHandler(nil); return }
-        let sem = DispatchSemaphore(value: 0)
-        var error: Error? = nil
-
-        DispatchQueue.main.async { [self] in
-            let nodes = dragNodes.isEmpty ? [node] : dragNodes
-            let destFolder = url.deletingLastPathComponent()
-
-            // Oturum başına bir kez sor
-            if dragDecision == nil {
-                let list = nodes.prefix(6).map { $0.name }.joined(separator: ", ") + (nodes.count > 6 ? " …" : "")
-                let destName = destFolder.lastPathComponent
-                let title = nodes.count == 1
-                    ? LF("\"%@\" \"%@\" klasörüne çıkartılsın mı?", nodes[0].name, destName)
-                    : LF("%d öğe \"%@\" klasörüne çıkartılsın mı?", nodes.count, destName)
-                dragDecision = Dialogs.confirm(title, LF("Arşiv: %@\nHedef: %@\nÖğeler: %@", (info.path as NSString).lastPathComponent, AppInfo.abbreviate(destFolder.path), list), okTitle: L("Çıkart"))
-            }
-            guard dragDecision == true else { error = CocoaError(.userCancelled); sem.signal(); return }
-
-            func moveIntoPlace() {
-                guard let tmp = dragTempDir else { error = CocoaError(.fileNoSuchFile); sem.signal(); return }
-                do {
-                    let src = URL(fileURLWithPath: (tmp as NSString).appendingPathComponent(node.path))
-                    if FileManager.default.fileExists(atPath: url.path) { try FileManager.default.removeItem(at: url) }
-                    try FileManager.default.moveItem(at: src, to: url)
-                } catch let e { error = e }
-                sem.signal()
-            }
-
-            if dragExtracted {
-                if dragExtractOK { moveIntoPlace() } else { error = CocoaError(.userCancelled); sem.signal() }
-                return
-            }
-
-            // İlk öğe: sürüklenen tüm öğeleri tek seferde geçici klasöre çıkart
-            let tmp = TempDirs.make("drag")
-            dragTempDir = tmp
-            dragExtracted = true
-            Ops.extract(info: info, names: Self.paths(for: nodes), dest: tmp, password: password, host: window, quiet: true) { ok, pw in
-                self.password = pw ?? self.password
-                self.dragExtractOK = ok
-                if ok { moveIntoPlace() } else { error = CocoaError(.userCancelled); sem.signal() }
+        guard let node = item as? Node, let exporter else { return nil }
+        let selected = selectedNodes()
+        let nodes = selected.contains(where: { $0 === node }) ? selected : [node]
+        let paths = Self.paths(for: nodes)
+        guard paths.contains(node.path) else { return nil } // A selected parent already contains this child.
+        if exporter.cachedURLs(for: paths) != nil { return exporter.cachedURL(for: node.path) as NSURL? }
+        guard !preparingDrag, let event = NSApp.currentEvent else { return nil }
+        preparingDrag = true
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.prepareFiles(nodes, finished: { [weak self] in self?.preparingDrag = false }) { [weak self] urls in
+                guard let self else { return }
+                self.preparingDrag = false
+                guard self.exporter === exporter, self.window?.isVisible == true else { return }
+                guard NSEvent.pressedMouseButtons & 1 != 0 else {
+                    self.statusLabel.stringValue = L("Dosyalar hazır — yeniden sürükleyin veya ⌘C tuşlarına basın.")
+                    return
+                }
+                let point = self.outline.convert(self.window!.mouseLocationOutsideOfEventStream, from: nil)
+                let items = urls.enumerated().map { index, url -> NSDraggingItem in
+                    let item = NSDraggingItem(pasteboardWriter: url as NSURL)
+                    let icon = NSWorkspace.shared.icon(forFile: url.path)
+                    item.setDraggingFrame(NSRect(x: point.x + CGFloat(index * 4), y: point.y - 16, width: 32, height: 32), contents: icon)
+                    return item
+                }
+                self.outline.beginDraggingSession(with: items, event: event, source: self.exportDragSource)
             }
         }
-
-        sem.wait()
-        // Son vaat tamamlanınca geçici klasörü temizle
-        dragPending -= 1
-        if dragPending <= 0, let tmp = dragTempDir {
-            try? FileManager.default.removeItem(atPath: tmp)
-            DispatchQueue.main.async { self.dragTempDir = nil }
-        }
-        completionHandler(error)
+        return nil
     }
 }
 
