@@ -97,12 +97,12 @@ enum Ops {
         let ow = mode == .overwrite ? "-aoa" : (mode == .rename ? "-aou" : "-aos")
         if info.tarCompressed {
             var inner = ["x", "-si", "-ttar", "-y", "-bb1", ow, "-o" + dest] + skipMetadataArgs
-            if let names { inner += ["--"] + names }
+            if let names { inner += ["-spd", "--"] + names }
             return [(.sevenZip, ["x", "-so", RarRunner.passwordArg7z(password), "--", info.path]),
                     (.sevenZip, inner)]
         }
         var args = ["x", "-y", "-bsp1", "-bb1", ow, RarRunner.passwordArg7z(password), "-o" + dest] + skipMetadataArgs + ["--", info.path]
-        if let names { args += names }
+        if let names { args.insert("-spd", at: 1); args += names }
         return [(.sevenZip, args)]
     }
 

@@ -42,6 +42,7 @@ The whole app is a few thousand lines of Swift, needs no Xcode project (Command 
 - Opens an archive as a folder tree: name, lock indicator, size, packed size, ratio, modification date, CRC. Click a header to sort; widths and sort order are remembered.
 - Search field filters the whole archive by path.
 - Double-click or press Return to open a file with its default app; press Space for a Quick Look preview.
+- Copy selected files or folders with ⌘C (or the context menu), then paste them into Finder, Telegram, or another app. The clipboard contains actual files, not archive paths.
 - File → Open Recent, View → Expand All / Collapse All / Refresh / Show Archive in Finder.
 - Settings (⌘,): default format and level for quick compression, Finder reveal behaviour, update check, interface language.
 - Status bar shows file count, total and packed size, format and flags (solid, encrypted headers, volumes).
@@ -49,7 +50,8 @@ The whole app is a few thousand lines of Swift, needs no Xcode project (Command 
 **Extracting**
 - Extract here (⌘E), extract to a folder named after the archive (⌥⌘E), extract to a chosen folder (⇧⌘E), or extract only the selected items.
 - If the destination already contains items with the same names you are asked whether to overwrite, auto-rename, or cancel.
-- Drag items from the archive window onto a Finder folder or the Desktop: MacRAR asks once, then extracts the dragged items there with a progress window.
+- Drag files or folders into Finder, Telegram, or other applications using real file URLs. Small selections are prepared in the background; larger selections show cancellable preparation progress. If you release the mouse before preparation finishes, drag again when the status says the files are ready.
+- Open, copy, Quick Look, and drag share prepared files. These temporary copies remain available after closing MacRAR so that another application can finish reading them; they are left to the system temporary-directory lifecycle. Changes made to a temporary copy are not automatically written back to the archive.
 - Progress window with overall percentage, estimated remaining time, elapsed time, the current file, and a collapsible log of processed files.
 
 **Encrypted archives**
